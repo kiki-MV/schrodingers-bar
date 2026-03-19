@@ -151,8 +151,14 @@ export async function POST(req: NextRequest) {
         .slice(0, 10);
     } catch {}
 
-    // 判断是否有拼桌记录 → 合照模式
-    const tableRecord = agent?.tableRecord;
+    // 从请求 body 读拼桌记录（agent 可能已被 receipt 删除）
+    let tableRecord = agent?.tableRecord;
+    try {
+      const body = await req.json();
+      if (body?.tableRecord) tableRecord = body.tableRecord;
+    } catch {
+      // no body, that's fine
+    }
     let imagePrompt: string;
 
     if (tableRecord) {

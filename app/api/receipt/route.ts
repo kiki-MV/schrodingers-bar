@@ -92,6 +92,7 @@ export async function POST(req: NextRequest) {
       receipt,
       quantumPhrase: getQuantumPhrase(),
       generatedImage: pregenImage?.image || null,
+      tableRecord: agent.tableRecord || null,
     });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });

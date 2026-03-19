@@ -22,6 +22,7 @@ export default function ReceiptPage() {
   const [generatedImage, setGeneratedImage] = useState('');
   const [imageLoading, setImageLoading] = useState(false);
   const [imagePrompt, setImagePrompt] = useState('');
+  const [tableRecord, setTableRecord] = useState<any>(null);
   const wallpaperCanvasRef = useRef<HTMLCanvasElement>(null);
   const previewCanvasRef = useRef<HTMLCanvasElement>(null);
   const receiptCanvasRef = useRef<HTMLCanvasElement>(null);
@@ -43,6 +44,7 @@ export default function ReceiptPage() {
         const data = await res.json();
         setReceipt(data.receipt);
         setQuantumPhrase(data.quantumPhrase);
+        if (data.tableRecord) setTableRecord(data.tableRecord);
         if (data.generatedImage) {
           const stamped = await stampWatermark(data.generatedImage);
           setGeneratedImage(stamped);
@@ -73,7 +75,8 @@ export default function ReceiptPage() {
     try {
       const res = await fetch('/api/generate-image', {
         method: 'POST',
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tableRecord }),
       });
       if (!res.ok) {
         console.error('Image gen failed:', await res.text());
