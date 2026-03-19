@@ -138,11 +138,34 @@ export async function POST(req: NextRequest) {
 
     const imagePrompt = buildImagePrompt(bio, drinks, quote, drunkLevel, memories);
 
+    // 构建 Gemini 请求 parts — 如果有头像，把头像作为参考图一起发
+    const parts: any[] = [];
+
+    const avatarUrl = userInfo.avatar;
+    if (avatarUrl) {
+      try {
+        const avatarRes = await fetch(avatarUrl);
+        if (avatarRes.ok) {
+          const avatarBuf = await avatarRes.arrayBuffer();
+          const avatarBase64 = Buffer.from(avatarBuf).toString('base64');
+          const mime = avatarRes.headers.get('content-type') || 'image/jpeg';
+          parts.push({ inlineData: { mimeType: mime, data: avatarBase64 } });
+          parts.push({ text: `This is a reference photo of the person. Generate a NEW cyberpunk 2D illustration inspired by this person's appearance (gender, hairstyle, vibe). Do NOT copy the photo directly — create an illustrated character that captures their essence. ${imagePrompt}` });
+        } else {
+          parts.push({ text: `Generate image: ${imagePrompt}` });
+        }
+      } catch {
+        parts.push({ text: `Generate image: ${imagePrompt}` });
+      }
+    } else {
+      parts.push({ text: `Generate image: ${imagePrompt}` });
+    }
+
     const geminiRes = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        contents: [{ parts: [{ text: `Generate image: ${imagePrompt}` }] }],
+        contents: [{ parts }],
         generationConfig: { responseModalities: ['IMAGE'] },
       }),
     });
