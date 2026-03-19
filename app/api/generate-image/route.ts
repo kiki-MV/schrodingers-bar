@@ -69,17 +69,22 @@ function buildImagePrompt(
   drunkLevel: number,
   memories: string[],
 ): string {
+  // 性别检测
+  const isFemale = /女|female|她|girl|woman/i.test(bio);
+  const isMale = /男|male|他[^们]|boy(?!friend)|man(?!y)/i.test(bio) && !isFemale;
+  const genderDesc = isFemale ? 'a young woman' : isMale ? 'a young man' : 'a person';
+
   // 从 bio 提取角色特征
-  const traits: string[] = [];
-  if (/猫|cat|devon/i.test(bio)) traits.push('a white curly-furred cat with large ears');
-  if (/狗|dog|cockapoo|orly/i.test(bio)) traits.push('a small fluffy red-brown and white cockapoo puppy');
+  const traits: string[] = [genderDesc];
+  if (/猫|cat|devon/i.test(bio)) traits.push('a white curly-furred cat with large ears nearby');
+  if (/狗|dog|cockapoo|orly/i.test(bio)) traits.push('a small fluffy red-brown and white cockapoo puppy nearby');
   if (/粉色|pink/i.test(bio)) traits.push('pink/magenta hair');
-  if (/ENFP/i.test(bio)) traits.push('bright expressive eyes, animated gestures');
+  if (/ENFP/i.test(bio)) traits.push('bright expressive eyes');
   if (/创始|founder/i.test(bio)) traits.push('wearing a stylish jacket');
   if (/kpop|音乐/i.test(bio)) traits.push('headphones around neck');
-  if (/AI|人工智能|Second Me/i.test(bio)) traits.push('holographic data displays nearby');
-  if (/杭州|hangzhou/i.test(bio)) traits.push('West Lake elements in background');
-  if (/湛江|guangdong/i.test(bio)) traits.push('tropical coastal vibes');
+  if (/AI|人工智能|Second Me/i.test(bio)) traits.push('holographic displays nearby');
+  if (/杭州|hangzhou/i.test(bio)) traits.push('misty lake in background');
+  if (/湛江|guangdong/i.test(bio)) traits.push('tropical vibes');
   const characterDesc = traits.length > 0 ? traits.join(', ') : 'a mysterious figure';
 
   // 从记忆中提取场景灵感
