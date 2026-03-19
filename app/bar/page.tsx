@@ -119,6 +119,9 @@ export default function BarPage() {
             <button onClick={() => router.push('/bar/talk')} className="w-full py-4 rounded-lg font-mono text-lg bg-neon-purple/20 border border-neon-purple text-neon-purple hover:bg-neon-purple/30 cursor-pointer pulse-glow">
               💬 跟 TA 搭话
             </button>
+            <button onClick={() => router.push('/bar/table')} className="w-full py-3 rounded-lg font-mono text-sm bg-neon-pink/15 border border-neon-pink text-neon-pink hover:bg-neon-pink/20 cursor-pointer">
+              🍻 拼桌 · 和别的 Agent 聊一个知乎热榜话题
+            </button>
             <div className="flex gap-3">
               <button onClick={() => setPhase('menu')} className="flex-1 py-3 rounded-lg font-mono text-sm border border-neon-amber text-neon-amber hover:bg-neon-amber/10 cursor-pointer">🍺 再来一杯</button>
               <button onClick={() => router.push('/bar/receipt')} className="flex-1 py-3 rounded-lg font-mono text-sm border border-neon-cyan text-neon-cyan hover:bg-neon-cyan/10 cursor-pointer">📜 生成账单</button>

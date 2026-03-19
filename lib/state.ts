@@ -1,4 +1,4 @@
-import { AgentState, ChatMessage, PastVisitor } from '@/types';
+import { AgentState, ChatMessage, PastVisitor, TableHistory } from '@/types';
 
 // 用 globalThis 确保跨 API route 共享同一份状态
 // Next.js dev 模式下不同 route 会被编译为独立模块
@@ -67,4 +67,20 @@ export function addPastVisitor(visitor: PastVisitor): void {
 
 export function getPastVisitors(): PastVisitor[] {
   return pastVisitors;
+}
+
+// ── 拼桌历史 ──
+
+if (!globalState.__bar_past_visitors) globalState.__bar_past_visitors = [];
+const gTable = globalThis as any;
+if (!gTable.__bar_table_history) gTable.__bar_table_history = [] as TableHistory[];
+const tableHistory: TableHistory[] = gTable.__bar_table_history;
+
+export function addTableHistory(t: TableHistory): void {
+  tableHistory.unshift(t);
+  if (tableHistory.length > 20) tableHistory.length = 20;
+}
+
+export function getTableHistory(): TableHistory[] {
+  return tableHistory;
 }

@@ -96,12 +96,26 @@ export interface PastVisitor {
   imagePrompt?: string;
 }
 
-// ========== 拼桌 (Day 2) ==========
-export interface Table {
+// ========== 拼桌 ==========
+export interface TableSession {
+  id: string;
+  topic: string;           // 知乎热榜话题
+  topicUrl?: string;
+  agent1: { name: string; avatar: string; drinkName: string; drunkLevel: number };
+  agent2: { name: string; avatar: string; drinkName: string; drunkLevel: number };
+  messages: { speaker: 'agent1' | 'agent2'; content: string }[];
+  status: 'chatting' | 'done';
+  createdAt: number;
+}
+
+export interface TableHistory {
   id: string;
   topic: string;
-  agents: AgentState[];
-  messages: ChatMessage[];
-  status: 'waiting' | 'chatting' | 'closed';
+  agent1Name: string;
+  agent2Name: string;
+  agent1Avatar: string;
+  agent2Avatar: string;
+  highlight: string;      // 最高光的一句
+  rounds: number;
   createdAt: number;
 }
