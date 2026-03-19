@@ -91,6 +91,7 @@ export default function ReceiptPage() {
           body: JSON.stringify({
             visitorId: receipt.id,
             image: data.image,
+            thumbnail: data.thumbnail,
             prompt: data.prompt,
           }),
         });

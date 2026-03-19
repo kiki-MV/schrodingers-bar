@@ -78,7 +78,7 @@ export async function POST(req: NextRequest) {
       mostAbsurdQuote: receipt.mostAbsurdQuote,
       leftAt: Date.now(),
       quantumNumber: receipt.quantumNumber,
-      generatedImage: pregenImage?.image,
+      thumbnail: (pregenImage as any)?.thumbnail,
       imagePrompt: pregenImage?.prompt,
     });
 

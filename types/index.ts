@@ -92,7 +92,7 @@ export interface PastVisitor {
   mostAbsurdQuote: string;
   leftAt: number;
   quantumNumber: string;
-  generatedImage?: string; // base64 data URL
+  thumbnail?: string; // 小图 base64 (~50KB), 用于吧台墙
   imagePrompt?: string;
 }
 

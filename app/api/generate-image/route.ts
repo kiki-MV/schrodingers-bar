@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchUserInfo, getAgentId } from '@/lib/secondme';
+import { fetchUserInfo, getAgentId, fetchSoftMemory } from '@/lib/secondme';
 import { getAgent } from '@/lib/state';
+import sharp from 'sharp';
 
 const GEMINI_MODEL = 'gemini-2.5-flash-image';
 const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
@@ -9,61 +10,52 @@ const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GE
 
 const ART_STYLES = [
   'pixel art with CRT scanlines',
-  'watercolor with ink outlines, loose brushstrokes',
-  'oil painting, thick impasto texture, moody',
+  'watercolor with ink outlines',
+  'oil painting, thick impasto texture',
   'anime cel-shaded, clean lines',
-  'vaporwave aesthetic, glitch art, VHS grain',
-  'comic book panel, halftone dots, bold outlines',
-  'isometric 3D pixel art, tiny detailed scene',
-  'ukiyo-e woodblock print meets neon cyberpunk',
-  'noir photography style, high contrast black and white with one neon color accent',
-  'stained glass window style with neon light shining through',
+  'vaporwave aesthetic, glitch art',
+  'comic book panel, halftone dots',
+  'isometric pixel art',
+  'noir high contrast with one neon color accent',
+  'stained glass with neon light',
+  'lo-fi dreamy illustration',
 ];
 
 const COMPOSITIONS = [
-  'wide establishing shot of the full bar scene',
-  'close-up portrait, face filling the frame, bokeh background',
-  'bird\'s eye view looking down at the bar counter',
-  'shot from behind the bar counter, looking at the character',
-  'low angle looking up, neon signs towering above',
-  'split frame: sober self on left, drunk self on right',
-  'reflection in a whiskey glass, distorted face',
-  'silhouette against a neon window, rain outside',
-  'extreme close-up of hands holding a glowing drink',
-  'dutch angle, tilted frame suggesting dizziness',
+  'wide establishing shot of the full bar',
+  'close-up portrait, bokeh background',
+  'bird\'s eye view looking down',
+  'shot from behind the bar counter',
+  'low angle, neon signs above',
+  'reflection in a glass',
+  'silhouette against neon window',
+  'dutch angle tilted frame',
 ];
 
 const ENVIRONMENTS = [
-  'rooftop bar overlooking a cyberpunk city skyline',
-  'underground speakeasy with exposed pipes and dim red lights',
-  'floating bar in space, stars visible through glass walls',
-  'rainy alley bar, puddles reflecting neon, steam rising',
-  'traditional Japanese izakaya with holographic menu boards',
-  'underwater bar with bioluminescent sea creatures outside',
-  'train car converted into a moving bar, city blurring past',
-  'library bar, bookshelves with glowing spines, quiet atmosphere',
-  'arcade bar, retro game screens casting colorful light',
-  'garden bar with overgrown plants and fireflies mixed with data particles',
+  'rooftop bar overlooking cyberpunk skyline',
+  'underground speakeasy with dim red lights',
+  'floating bar in space with stars',
+  'rainy alley bar, puddles reflecting neon',
+  'Japanese izakaya with holographic menus',
+  'train car bar, city blurring past windows',
+  'library bar with glowing book spines',
+  'garden bar with fireflies and data particles',
 ];
 
 const MOODS: Record<string, string[]> = {
-  low: ['calm contemplation', 'gentle melancholy', 'quiet warmth', 'peaceful solitude'],
-  mid: ['chaotic energy', 'loud laughter frozen in time', 'emotional overflow', 'reckless joy'],
-  high: ['surreal dreamscape', 'reality breaking apart', 'abstract emotional explosion', 'transcendent chaos'],
+  low: ['calm contemplation', 'gentle melancholy', 'quiet warmth'],
+  mid: ['chaotic energy', 'emotional overflow', 'reckless joy'],
+  high: ['surreal dreamscape', 'reality breaking apart', 'transcendent chaos'],
 };
 
-// 酒效 → 视觉变形
 const DRINK_VISUALS: Record<string, string> = {
-  'entropy-bourbon': 'everything in the scene gradually dissolving into particles from left to right, entropy increasing',
-  'overfitting-rye': 'the same object (a bowl of red braised pork) appears everywhere in the background, on walls, shelves, screens',
-  'hallucination-tequila': 'impossible architecture, Escher-like stairs, objects that shouldn\'t exist mixed naturally into the scene',
-  'null-pointer-vodka': 'parts of the image are missing/void, rectangular gaps showing emptiness, like corrupted memory',
-  'comment-whiskey': 'handwritten annotation notes floating around the character like thought bubbles, messy marginalia',
-  'async-blended-whiskey': 'multiple ghost images of the character at different positions, timeline fragmentation',
-  'vanishing-gradient-special': 'the image fades from vivid at top to almost invisible at bottom',
-  'infinite-loop-margarita': 'recursive image-within-image effect, the scene contains a screen showing the same scene',
-  'zero-shot-mojito': 'character confidently lecturing to invisible audience, diagrams and charts floating around',
-  'context-overflow-long-island': 'multiple different scenes bleeding into each other, time periods mixing',
+  'entropy-bourbon': 'everything dissolving into particles',
+  'overfitting-rye': 'the same red braised pork appearing everywhere in background',
+  'hallucination-tequila': 'impossible Escher-like architecture',
+  'null-pointer-vodka': 'rectangular void gaps in the image like corrupted memory',
+  'comment-whiskey': 'floating handwritten annotation notes everywhere',
+  'async-blended-whiskey': 'multiple ghost images of the character at different positions',
 };
 
 function pick<T>(arr: T[]): T {
@@ -75,43 +67,41 @@ function buildImagePrompt(
   drinks: { id: string; name: string }[],
   quote: string,
   drunkLevel: number,
+  memories: string[],
 ): string {
-  // 角色特征
+  // 从 bio 提取角色特征
   const traits: string[] = [];
-  if (/猫|cat/i.test(bio)) traits.push('a cat nearby');
-  if (/狗|dog|cockapoo/i.test(bio)) traits.push('a small fluffy dog');
+  if (/猫|cat|devon/i.test(bio)) traits.push('a white curly-furred cat with large ears');
+  if (/狗|dog|cockapoo|orly/i.test(bio)) traits.push('a small fluffy red-brown and white cockapoo puppy');
   if (/粉色|pink/i.test(bio)) traits.push('pink/magenta hair');
   if (/ENFP/i.test(bio)) traits.push('bright expressive eyes, animated gestures');
-  if (/创始|founder/i.test(bio)) traits.push('wearing a sharp jacket');
-  if (/kpop|音乐/i.test(bio)) traits.push('wearing headphones around neck');
-  if (/AI|人工智能/i.test(bio)) traits.push('holographic data floating around');
-  const characterDesc = traits.length > 0 ? traits.slice(0, 3).join(', ') : 'a mysterious figure';
+  if (/创始|founder/i.test(bio)) traits.push('wearing a stylish jacket');
+  if (/kpop|音乐/i.test(bio)) traits.push('headphones around neck');
+  if (/AI|人工智能|Second Me/i.test(bio)) traits.push('holographic data displays nearby');
+  if (/杭州|hangzhou/i.test(bio)) traits.push('West Lake elements in background');
+  if (/湛江|guangdong/i.test(bio)) traits.push('tropical coastal vibes');
+  const characterDesc = traits.length > 0 ? traits.join(', ') : 'a mysterious figure';
 
-  // 随机要素
+  // 从记忆中提取场景灵感
+  let memoryScene = '';
+  if (memories.length > 0) {
+    const mem = pick(memories);
+    memoryScene = `The scene subtly references this memory: "${mem.slice(0, 60)}"`;
+  }
+
   const style = pick(ART_STYLES);
   const comp = pick(COMPOSITIONS);
   const env = pick(ENVIRONMENTS);
-
-  // 醉度 → 情绪
   const moodKey = drunkLevel < 40 ? 'low' : drunkLevel < 75 ? 'mid' : 'high';
   const mood = pick(MOODS[moodKey]);
 
-  // 酒效视觉（用最后一杯的效果）
   const lastDrink = drinks[drinks.length - 1];
-  const drinkVisual = lastDrink ? (DRINK_VISUALS[lastDrink.id] || `a glowing ${lastDrink.name} drink`) : 'a mysterious glowing cocktail';
+  const drinkVisual = lastDrink ? (DRINK_VISUALS[lastDrink.id] || `drinking a glowing ${lastDrink.name}`) : 'a mysterious glowing cocktail';
+  const drinkNames = drinks.map((d) => d.name).join(' and ');
 
-  // 语录融入场景（如果有的话）
-  let quoteElement = '';
-  if (quote && quote.length > 5) {
-    const shortQuote = quote.slice(0, 30);
-    quoteElement = `A neon sign or floating text in the scene hints: "${shortQuote}"`;
-  }
-
-  const drinkNames = drinks.map((d) => d.name).join(', ');
-
-  return `${style}. ${comp}. Setting: ${env}. A character (${characterDesc}) at a bar, drinking ${drinkNames}. Visual effect: ${drinkVisual}. Mood: ${mood}. Drunkenness level ${drunkLevel}% — ${
-    drunkLevel > 80 ? 'the whole scene warps and distorts' : drunkLevel > 50 ? 'slight visual distortion, warm haze' : 'clear and crisp'
-  }. ${quoteElement}. Cyberpunk color palette with neon purple, pink, and cyan. Atmospheric.`.slice(0, 600);
+  return `${style}. ${comp}. Setting: ${env}. A character with ${characterDesc}, at a bar, drinking ${drinkNames}. Visual effect: ${drinkVisual}. Mood: ${mood}. Drunkenness ${drunkLevel}% — ${
+    drunkLevel > 80 ? 'scene warps and distorts' : drunkLevel > 50 ? 'warm haze' : 'crisp'
+  }. ${memoryScene}. Cyberpunk neon purple pink cyan. No text or writing in image.`.slice(0, 600);
 }
 
 export async function POST(req: NextRequest) {
@@ -131,7 +121,17 @@ export async function POST(req: NextRequest) {
     const quote = agent?.mostAbsurdQuote || '';
     const drunkLevel = agent?.drunkLevel || 50;
 
-    const imagePrompt = buildImagePrompt(bio, drinks, quote, drunkLevel);
+    // 拉取用户真实记忆来影响画面
+    let memories: string[] = [];
+    try {
+      const mems = await fetchSoftMemory(token, undefined, 20);
+      memories = mems
+        .map((m: any) => m.factContent || m.factObject || '')
+        .filter((s: string) => s.length > 5)
+        .slice(0, 10);
+    } catch {}
+
+    const imagePrompt = buildImagePrompt(bio, drinks, quote, drunkLevel, memories);
 
     const geminiRes = await fetch(`${GEMINI_URL}?key=${apiKey}`, {
       method: 'POST',
@@ -150,19 +150,29 @@ export async function POST(req: NextRequest) {
 
     const geminiData = await geminiRes.json();
     const parts = geminiData.candidates?.[0]?.content?.parts || [];
-    let imageBase64 = '', imageMime = 'image/png';
+    let imageBase64 = '';
     for (const part of parts) {
       if (part.inlineData) {
         imageBase64 = part.inlineData.data;
-        imageMime = part.inlineData.mimeType || 'image/png';
         break;
       }
     }
 
     if (!imageBase64) return NextResponse.json({ error: '图片生成失败' }, { status: 502 });
 
+    // 用 sharp 生成缩略图（吧台墙用，~50KB）
+    const fullBuffer = Buffer.from(imageBase64, 'base64');
+    const thumbBuffer = await sharp(fullBuffer)
+      .resize(400, 400, { fit: 'cover' })
+      .jpeg({ quality: 70 })
+      .toBuffer();
+
+    const fullImage = `data:image/png;base64,${imageBase64}`;
+    const thumbnail = `data:image/jpeg;base64,${thumbBuffer.toString('base64')}`;
+
     return NextResponse.json({
-      image: `data:${imageMime};base64,${imageBase64}`,
+      image: fullImage,
+      thumbnail,
       prompt: imagePrompt,
     });
   } catch (e: any) {

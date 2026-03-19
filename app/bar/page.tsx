@@ -13,7 +13,7 @@ interface VisitorCard {
   agentName: string; agentAvatar: string; drunkLevel: number;
   drinks: { emoji: string; name: string; color: string }[];
   mostAbsurdQuote?: string; isHere?: boolean; quantumNumber?: string;
-  generatedImage?: string; id?: string;
+  thumbnail?: string; id?: string;
 }
 
 export default function BarPage() {
@@ -49,11 +49,10 @@ export default function BarPage() {
           headers: { Authorization: `Bearer ${token}` },
         }).then((r) => r.json()).then((data) => {
           if (data.image) {
-            // 存到 agent state 里供结账时使用
             fetch('/api/bar/visitors/image', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ visitorId: '__current__', image: data.image, prompt: data.prompt }),
+              body: JSON.stringify({ visitorId: '__current__', image: data.image, thumbnail: data.thumbnail, prompt: data.prompt }),
             });
           }
         }).catch(() => {});
@@ -195,9 +194,9 @@ export default function BarPage() {
                 const lastDrinkColor = v.drinks?.[v.drinks.length - 1]?.color || '#a855f7';
                 return (
                   <div key={i}
-                    onClick={() => v.generatedImage && setSelectedVisitor(v)}
+                    onClick={() => v.thumbnail && setSelectedVisitor(v)}
                     className={`glass-card overflow-hidden relative group ${
-                      v.generatedImage ? 'cursor-pointer' : ''
+                      v.thumbnail ? 'cursor-pointer' : ''
                     } ${v.isHere ? '' : 'opacity-80'}`}
                     style={{ borderColor: lastDrinkColor + '40' }}
                   >
@@ -207,11 +206,11 @@ export default function BarPage() {
                         style={{ '--glow-color': '#22c55e' } as any} />
                     )}
 
-                    {v.generatedImage ? (
+                    {v.thumbnail ? (
                       /* ── 有 AI 图的卡片 ── */
                       <>
                         <div className="aspect-square relative overflow-hidden">
-                          <img src={v.generatedImage} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                          <img src={v.thumbnail} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                           <div className="absolute bottom-0 left-0 right-0 h-1/2 bg-gradient-to-t from-black/80 to-transparent" />
                         </div>
                         <div className="p-3 -mt-10 relative z-10">
@@ -271,8 +270,8 @@ export default function BarPage() {
             <div className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
               onClick={() => setSelectedVisitor(null)}>
               <div className="max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-                {selectedVisitor.generatedImage && (
-                  <img src={selectedVisitor.generatedImage} alt="" className="w-full rounded-xl mb-4" style={{ boxShadow: '0 0 60px rgba(168,85,247,0.3)' }} />
+                {selectedVisitor.thumbnail && (
+                  <img src={selectedVisitor.thumbnail} alt="" className="w-full rounded-xl mb-4" style={{ boxShadow: '0 0 60px rgba(168,85,247,0.3)' }} />
                 )}
                 <div className="glass-card p-5 text-center">
                   <p className="text-neon-pink font-bold mb-2 text-lg">
@@ -288,8 +287,8 @@ export default function BarPage() {
                     <div className="h-full drunk-meter-fill rounded-full" style={{ width: `${selectedVisitor.drunkLevel}%` }} />
                   </div>
                   <p className="text-text-dim text-xs font-mono mb-4">醉度 {selectedVisitor.drunkLevel}%</p>
-                  {selectedVisitor.generatedImage && (
-                    <a href={selectedVisitor.generatedImage} download={`薛定谔酒吧_${selectedVisitor.agentName}.png`}
+                  {selectedVisitor.thumbnail && (
+                    <a href={selectedVisitor.thumbnail} download={`薛定谔酒吧_${selectedVisitor.agentName}.png`}
                       className="inline-block px-6 py-2 rounded-lg border border-neon-pink text-neon-pink text-sm font-mono hover:bg-neon-pink/10 cursor-pointer">
                       📱 下载壁纸
                     </a>
