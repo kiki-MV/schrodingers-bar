@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchUserInfo, getAgentId, chat } from '@/lib/secondme';
-import { getAgent, getPastVisitors, addTableHistory } from '@/lib/state';
+import { getAgent, getPastVisitors, getAllAgents, addTableHistory } from '@/lib/state';
 import { buildDrunkPrompt } from '@/lib/personality';
 import { fetchBillboard, HotTopic } from '@/lib/zhihu';
 import { TableSession } from '@/types';
@@ -27,12 +27,22 @@ export async function POST(req: NextRequest) {
     const agent = await getAgent(agentId);
     if (!agent) return NextResponse.json({ error: 'Agent 还没进吧' }, { status: 400 });
 
-    // 找一个对手 (从历史访客里挑)
-    const visitors = (await getPastVisitors()).filter((v) => v.agentName !== agent.profile.name);
-    if (visitors.length === 0) {
+    // 找一个对手 — 先从历史访客找，再从当前在场找
+    const pastCandidates = (await getPastVisitors()).filter((v) => v.agentName !== agent.profile.name);
+    const currentAgents = (await getAllAgents()).filter((a) => a.agentId !== agentId);
+    // 把当前在场的也转成和 pastVisitor 兼容的格式
+    const currentAsCandidates = currentAgents.map((a) => ({
+      agentName: a.profile.name,
+      agentAvatar: a.profile.avatar,
+      drinks: a.activeDrinks.map((d) => ({ emoji: d.emoji, name: d.drinkName, color: '' })),
+      drunkLevel: a.drunkLevel,
+      mostAbsurdQuote: a.mostAbsurdQuote || '刚到，还没来得及说什么',
+    }));
+    const allCandidates = [...currentAsCandidates, ...pastCandidates];
+    if (allCandidates.length === 0) {
       return NextResponse.json({ error: '今晚酒吧只有你一个人，还没有可以拼桌的对象' }, { status: 400 });
     }
-    const partner = visitors[Math.floor(Math.random() * visitors.length)];
+    const partner = allCandidates[Math.floor(Math.random() * allCandidates.length)];
 
     // 抽话题 — 优先知乎热榜，fallback 用预设
     let topic: { title: string; url?: string } = {
