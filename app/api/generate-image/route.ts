@@ -177,11 +177,11 @@ export async function POST(req: NextRequest) {
     }
 
     const geminiData = await geminiRes.json();
-    const parts = geminiData.candidates?.[0]?.content?.parts || [];
+    const respParts = geminiData.candidates?.[0]?.content?.parts || [];
     let imageBase64 = '';
-    for (const part of parts) {
-      if (part.inlineData) {
-        imageBase64 = part.inlineData.data;
+    for (const p of respParts) {
+      if (p.inlineData) {
+        imageBase64 = p.inlineData.data;
         break;
       }
     }
