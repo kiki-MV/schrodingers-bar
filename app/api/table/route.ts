@@ -24,11 +24,11 @@ export async function POST(req: NextRequest) {
   try {
     const userInfo = await fetchUserInfo(token);
     const agentId = getAgentId(userInfo);
-    const agent = getAgent(agentId);
+    const agent = await getAgent(agentId);
     if (!agent) return NextResponse.json({ error: 'Agent 还没进吧' }, { status: 400 });
 
     // 找一个对手 (从历史访客里挑)
-    const visitors = getPastVisitors().filter((v) => v.agentName !== agent.profile.name);
+    const visitors = (await getPastVisitors()).filter((v) => v.agentName !== agent.profile.name);
     if (visitors.length === 0) {
       return NextResponse.json({ error: '今晚酒吧只有你一个人，还没有可以拼桌的对象' }, { status: 400 });
     }
@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
       (best, m) => (m.content.length > best.length ? m.content : best),
       '',
     );
-    addTableHistory({
+    await addTableHistory({
       id: session.id,
       topic: topic.title,
       agent1Name: agent.profile.name,
@@ -136,5 +136,5 @@ ${visitor.drunkLevel > 60 ? '你已经很醉了，说话简短、情绪化、真
 /** GET: 获取拼桌历史 */
 export async function GET() {
   const { getTableHistory } = await import('@/lib/state');
-  return NextResponse.json({ tables: getTableHistory() });
+  return NextResponse.json({ tables: await getTableHistory() });
 }

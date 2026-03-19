@@ -40,7 +40,7 @@ export async function POST(req: NextRequest) {
   try {
     const userInfo = await fetchUserInfo(token);
     const agentId = getAgentId(userInfo);
-    const agent = getAgent(agentId);
+    const agent = await getAgent(agentId);
     if (!agent) return NextResponse.json({ error: 'Agent 还没进吧' }, { status: 400 });
 
     const state = getMonologueState(agentId);
@@ -86,10 +86,10 @@ export async function POST(req: NextRequest) {
           } catch {}
         }
       },
-      flush() {
+      async flush() {
         if (fullText) {
-          addChatMessage(agentId, { role: 'agent', content: fullText, timestamp: Date.now() });
-          if (fullText.length > 5) updateMostAbsurdQuote(agentId, fullText);
+          await addChatMessage(agentId, { role: 'agent', content: fullText, timestamp: Date.now() });
+          if (fullText.length > 5) await updateMostAbsurdQuote(agentId, fullText);
         }
       },
     });

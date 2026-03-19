@@ -25,7 +25,7 @@ export async function POST(req: NextRequest) {
       drink = getRandomDrink();
     }
 
-    let agent = getAgent(agentId);
+    let agent = await getAgent(agentId);
     const isNewEntry = !agent;
 
     if (!agent) {
@@ -61,7 +61,7 @@ export async function POST(req: NextRequest) {
     };
     agent.activeDrinks.push(consumed);
     agent.drunkLevel = Math.min(100, agent.drunkLevel + drink.strengthLevel * 12);
-    setAgent(agentId, agent);
+    await setAgent(agentId, agent);
 
     return NextResponse.json({
       isNewEntry,

@@ -13,10 +13,10 @@ export async function POST(req: NextRequest) {
 
     const userInfo = await fetchUserInfo(token);
     const agentId = getAgentId(userInfo);
-    const agent = getAgent(agentId);
+    const agent = await getAgent(agentId);
     if (!agent) return NextResponse.json({ error: 'Agent 还没进吧，先喝一杯吧' }, { status: 400 });
 
-    addChatMessage(agentId, { role: 'user', content: message, timestamp: Date.now() });
+    await addChatMessage(agentId, { role: 'user', content: message, timestamp: Date.now() });
 
     // 流式透传 SecondMe SSE
     const sseResponse = await chatStreamRaw(token, message, {
@@ -40,11 +40,10 @@ export async function POST(req: NextRequest) {
           } catch {}
         }
       },
-      flush() {
-        // 流结束后保存
+      async flush() {
         if (fullText) {
-          addChatMessage(agentId, { role: 'agent', content: fullText, timestamp: Date.now() });
-          if (fullText.length > 5) updateMostAbsurdQuote(agentId, fullText);
+          await addChatMessage(agentId, { role: 'agent', content: fullText, timestamp: Date.now() });
+          if (fullText.length > 5) await updateMostAbsurdQuote(agentId, fullText);
         }
       },
     });

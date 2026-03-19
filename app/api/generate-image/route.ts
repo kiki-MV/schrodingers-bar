@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
   try {
     const userInfo = await fetchUserInfo(token);
     const agentId = getAgentId(userInfo);
-    const agent = getAgent(agentId);
+    const agent = await getAgent(agentId);
 
     const bio = userInfo.bio || '';
     const drinks = agent?.activeDrinks?.map((d: any) => ({ id: d.drinkId, name: d.drinkName })) || [{ id: '', name: 'mystery cocktail' }];

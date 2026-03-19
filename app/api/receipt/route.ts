@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
   try {
     const userInfo = await fetchUserInfo(token);
     const agentId = getAgentId(userInfo);
-    const agent = getAgent(agentId);
+    const agent = await getAgent(agentId);
 
     if (!agent) {
       return NextResponse.json({ error: 'Agent 还没进吧' }, { status: 400 });
@@ -65,7 +65,7 @@ export async function POST(req: NextRequest) {
     } catch {}
 
     // 保存到酒吧墙
-    addPastVisitor({
+    await addPastVisitor({
       id: receipt.id,
       agentName: receipt.agentName,
       agentAvatar: receipt.agentAvatar,
@@ -83,7 +83,7 @@ export async function POST(req: NextRequest) {
     });
 
     // 清除 agent 状态（离场）
-    removeAgent(agentId);
+    await removeAgent(agentId);
 
     return NextResponse.json({
       receipt,

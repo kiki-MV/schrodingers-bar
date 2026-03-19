@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { getAllAgents, getPastVisitors } from '@/lib/state';
 
 export async function GET() {
-  const current = getAllAgents().map((a) => ({
+  const current = (await getAllAgents()).map((a) => ({
     agentName: a.profile.name,
     agentAvatar: a.profile.avatar,
     drunkLevel: a.drunkLevel,
@@ -12,6 +12,6 @@ export async function GET() {
 
   return NextResponse.json({
     current,
-    past: getPastVisitors(),
+    past: await getPastVisitors(),
   });
 }

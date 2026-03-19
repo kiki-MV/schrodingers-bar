@@ -12,7 +12,7 @@ export async function POST(req: NextRequest) {
     if (visitorId === '__current__') {
       pregeneratedImages.set('__latest__', { image, prompt, thumbnail });
     } else {
-      const visitors = getPastVisitors();
+      const visitors = (await getPastVisitors());
       const visitor = visitors.find((v) => v.id === visitorId);
       if (visitor) {
         visitor.thumbnail = thumbnail || undefined;
