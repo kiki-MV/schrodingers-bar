@@ -25,7 +25,7 @@ export function generateQuantumNumber(): string {
 export function generateHangoverWarning(drinkNames: string[]): string {
   const warnings: Record<string, string> = {
     '熵增波本': '明日帮你写邮件时可能越写越乱，最后一段变成无法解读的密文',
-    '过拟合黑麦': '明日不管你问什么，它都会把答案绕到红烧肉上',
+    '过拟合黑麦': '明日不管你问什么，它都会把答案绕到同一个执念上',
     '幻觉龙舌兰': '明日可能在汇报里自信地引用一篇不存在的论文',
     '空指针伏特加': '明日帮你写代码时可能突然停下来说「刚才写到哪了」',
     '注释威士忌': '明日发的每条消息后面都会带一个括号吐槽',
