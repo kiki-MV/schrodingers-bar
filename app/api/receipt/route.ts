@@ -57,11 +57,14 @@ export async function POST(req: NextRequest) {
     };
 
     // 取预生成的图片
-    let pregenImage: { image: string; prompt: string } | undefined;
+    let pregenImage: { image: string; prompt: string; thumbnail?: string } | undefined;
     try {
-      const { pregeneratedImages } = await import('@/app/api/bar/visitors/image/route');
-      pregenImage = pregeneratedImages.get('__latest__');
-      if (pregenImage) pregeneratedImages.delete('__latest__');
+      const { getPregenImage, clearPregenImage } = await import('@/app/api/bar/visitors/image/route');
+      const cached = await getPregenImage();
+      if (cached) {
+        pregenImage = cached;
+        await clearPregenImage();
+      }
     } catch {}
 
     // 保存到酒吧墙
