@@ -36,6 +36,51 @@ export default function TalkPage() {
     chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages]);
 
+  /** 通用 SSE 流式读取 → 逐字更新最后一条消息 */
+  const readSSE = useCallback(async (
+    res: Response,
+    meta: { depth?: number; drinkId?: string },
+  ) => {
+    const depth = meta.depth ?? 0;
+    const drinkId = meta.drinkId || '';
+
+    // 先插入空消息占位
+    setMessages((prev) => [...prev, { role: 'agent', content: '', depth, drinkId }]);
+
+    const reader = res.body!.getReader();
+    const decoder = new TextDecoder();
+    let buf = '';
+
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      buf += decoder.decode(value, { stream: true });
+
+      // 逐行解析 SSE
+      const lines = buf.split('\n');
+      buf = lines.pop() || ''; // 最后一行可能不完整
+
+      for (const line of lines) {
+        if (!line.startsWith('data:')) continue;
+        const json = line.slice(5).trim();
+        if (!json || json === '[DONE]') continue;
+        try {
+          const c = JSON.parse(json).choices?.[0]?.delta?.content;
+          if (c) {
+            setMessages((prev) => {
+              const updated = [...prev];
+              const last = updated[updated.length - 1];
+              if (last?.role === 'agent') {
+                updated[updated.length - 1] = { ...last, content: last.content + c };
+              }
+              return updated;
+            });
+          }
+        } catch {}
+      }
+    }
+  }, []);
+
   const fetchMonologue = useCallback(async () => {
     if (!token || monologuing || sending) return;
     setMonologuing(true);
@@ -44,33 +89,29 @@ export default function TalkPage() {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}` },
       });
-      if (!res.ok) return;
-      const data = await res.json();
-      if (data.reply) {
-        // 深度变化时插入旁白
-        const depth = data.depth ?? 0;
-        if (depth === 2 && monologueCount.current < 3) {
-          setMessages((prev) => [...prev, { role: 'narration', content: '🌊 酒劲上来了，TA 的眼神开始变得恍惚……' }]);
-        } else if (depth === 3) {
-          setMessages((prev) => [...prev, { role: 'narration', content: '🌙 已经很晚了，TA 的声音越来越轻……' }]);
-        }
-        setMessages((prev) => [...prev, { role: 'agent', content: data.reply, depth, drinkId: data.drinkId }]);
-        if (data.agentState) {
-          const prevDrunk = drunkLevel;
-          setDrunkLevel(data.agentState.drunkLevel);
-          // 首次突破 90% 时提示天旋地转
-          if (prevDrunk < 90 && data.agentState.drunkLevel >= 90) {
-            setMessages((prev) => [...prev, { role: 'narration', content: '🌀 天旋地转…… 你看到对话框开始在眼前游走' }]);
-          }
-        }
-        monologueCount.current += 1;
+      if (!res.ok || !res.body) return;
+
+      const depth = parseInt(res.headers.get('X-Depth') || '0');
+      const drinkId = res.headers.get('X-Drink-Id') || '';
+      const drunk = parseInt(res.headers.get('X-Drunk-Level') || '0');
+
+      // 深度旁白
+      if (depth === 2 && monologueCount.current < 3) {
+        setMessages((prev) => [...prev, { role: 'narration', content: '🌊 酒劲上来了，TA 的眼神开始变得恍惚……' }]);
+      } else if (depth === 3) {
+        setMessages((prev) => [...prev, { role: 'narration', content: '🌙 已经很晚了，TA 的声音越来越轻……' }]);
       }
+
+      await readSSE(res, { depth, drinkId });
+
+      if (drunk > 0) setDrunkLevel(drunk);
+      monologueCount.current += 1;
     } catch {
       // silent
     } finally {
       setMonologuing(false);
     }
-  }, [token, monologuing, sending]);
+  }, [token, monologuing, sending, readSSE]);
 
   // 安排下一轮独白
   const scheduleNext = useCallback(() => {
@@ -141,13 +182,11 @@ export default function TalkPage() {
         headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
         body: JSON.stringify({ message: userMsg }),
       });
-      if (!res.ok) {
-        const err = await res.json();
+      if (!res.ok || !res.body) {
+        const err = await res.json().catch(() => ({ error: '请求失败' }));
         setMessages((prev) => [...prev, { role: 'narration', content: `⚠️ ${err.error}` }]);
       } else {
-        const data = await res.json();
-        setMessages((prev) => [...prev, { role: 'agent', content: data.reply }]);
-        if (data.agentState) setDrunkLevel(data.agentState.drunkLevel);
+        await readSSE(res, {});
       }
     } catch (e: any) {
       setMessages((prev) => [...prev, { role: 'narration', content: `⚠️ ${e.message}` }]);

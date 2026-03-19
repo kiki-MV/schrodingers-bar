@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { fetchUserInfo, getAgentId, chat } from '@/lib/secondme';
+import { fetchUserInfo, getAgentId, chatStreamRaw } from '@/lib/secondme';
 import { getAgent, addChatMessage, updateMostAbsurdQuote } from '@/lib/state';
 import { buildDrunkPrompt } from '@/lib/personality';
 
@@ -14,20 +14,49 @@ export async function POST(req: NextRequest) {
     const userInfo = await fetchUserInfo(token);
     const agentId = getAgentId(userInfo);
     const agent = getAgent(agentId);
-
     if (!agent) return NextResponse.json({ error: 'Agent 还没进吧，先喝一杯吧' }, { status: 400 });
 
     addChatMessage(agentId, { role: 'user', content: message, timestamp: Date.now() });
 
-    const reply = await chat(token, message, { systemPrompt: buildDrunkPrompt(agent) });
+    // 流式透传 SecondMe SSE
+    const sseResponse = await chatStreamRaw(token, message, {
+      systemPrompt: buildDrunkPrompt(agent),
+    });
 
-    addChatMessage(agentId, { role: 'agent', content: reply, timestamp: Date.now() });
+    // 用 TransformStream 边透传边收集完整文本
+    let fullText = '';
+    const transform = new TransformStream({
+      transform(chunk, controller) {
+        controller.enqueue(chunk);
+        // 解析收集文本
+        const text = new TextDecoder().decode(chunk);
+        for (const line of text.split('\n')) {
+          if (!line.startsWith('data:')) continue;
+          const json = line.slice(5).trim();
+          if (!json || json === '[DONE]') continue;
+          try {
+            const c = JSON.parse(json).choices?.[0]?.delta?.content;
+            if (c) fullText += c;
+          } catch {}
+        }
+      },
+      flush() {
+        // 流结束后保存
+        if (fullText) {
+          addChatMessage(agentId, { role: 'agent', content: fullText, timestamp: Date.now() });
+          if (fullText.length > 5) updateMostAbsurdQuote(agentId, fullText);
+        }
+      },
+    });
 
-    if (reply.length > 10) updateMostAbsurdQuote(agentId, reply);
+    const stream = sseResponse.body!.pipeThrough(transform);
 
-    return NextResponse.json({
-      reply,
-      agentState: { drunkLevel: agent.drunkLevel, totalDrinks: agent.activeDrinks.length },
+    return new Response(stream, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        Connection: 'keep-alive',
+      },
     });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });

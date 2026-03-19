@@ -128,3 +128,28 @@ export async function chat(
 
   return fullText || '……';
 }
+
+/** 流式版本 — 返回原始 SSE Response 供 API route 直接透传 */
+export async function chatStreamRaw(
+  accessToken: string,
+  message: string,
+  options: { sessionId?: string; systemPrompt?: string } = {},
+): Promise<Response> {
+  const res = await fetch(`${BASE_URL}/api/secondme/chat/stream`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${accessToken}`,
+      'X-App-Id': 'schrodingers-bar',
+    },
+    body: JSON.stringify({
+      message,
+      sessionId: options.sessionId,
+      systemPrompt: options.systemPrompt,
+    }),
+  });
+  if (!res.ok) {
+    throw new Error(`SecondMe Chat ${res.status}`);
+  }
+  return res;
+}
