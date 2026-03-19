@@ -156,7 +156,7 @@ export default function TablePage() {
           const isA1 = msg.speaker === 'agent1';
           return (
             <div key={i} className={`flex ${isA1 ? 'justify-start' : 'justify-end'} fade-in-up`}>
-              <div className={`max-w-[75%] rounded-2xl px-4 py-3 ${isA1 ? 'glass-card' : 'bg-neon-pink/15 border border-neon-pink/30'}`}>
+              <div className={`max-w-[75%] rounded-2xl px-4 py-3 ${isA1 ? 'glass-card' : 'bg-neon-pink/20 border border-neon-pink/40'}`}>
                 <p className="text-xs mb-1 font-mono" style={{ color: isA1 ? '#a855f7' : '#ec4899' }}>
                   🍸 {isA1 ? agent1?.name : agent2?.name}
                 </p>

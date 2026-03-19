@@ -32,11 +32,20 @@
   --font-mono: var(--font-geist-mono);
 }
 
-body {
-  background: var(--bg-dark);
-  color: var(--text-primary);
+html, body {
+  background: #0a0a0f !important;
+  color: #e2e8f0 !important;
   font-family: Arial, Helvetica, sans-serif;
   min-height: 100vh;
+  color-scheme: dark;
+}
+
+/* 强制覆盖任何 light mode 残留 */
+@media (prefers-color-scheme: light) {
+  html, body {
+    background: #0a0a0f !important;
+    color: #e2e8f0 !important;
+  }
 }
 
 /* 霓虹发光效果 */
