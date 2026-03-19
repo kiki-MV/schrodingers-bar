@@ -1,24 +1,22 @@
-export const maxDuration = 60; // Vercel function timeout
+export const maxDuration = 60;
 
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchUserInfo, getAgentId, chat } from '@/lib/secondme';
 import { getAgent, getPastVisitors, getAllAgents, addTableHistory } from '@/lib/state';
 import { buildDrunkPrompt } from '@/lib/personality';
-import { fetchBillboard, HotTopic } from '@/lib/zhihu';
+import { fetchBillboard } from '@/lib/zhihu';
 import { TableSession } from '@/types';
 
 const FALLBACK_TOPICS = [
   '年轻人为什么不想结婚了',
-  '996 和 work-life balance 到底怎么选',
-  '如果可以重来，你会选择什么职业',
   'AI 会让人类变得更孤独还是更连接',
   '你最后悔没有早点做的一件事是什么',
-  '独居的人如何对抗深夜的孤独感',
-  '你觉得社交媒体上的自己是真实的你吗',
   '如果给 25 岁的自己写一封信，你会说什么',
+  '深夜最容易想起的一个人是谁',
+  '你觉得社交媒体上的自己是真实的你吗',
 ];
 
-/** POST: 发起拼桌 — 当前 Agent + 随机匹配一个历史访客 */
+/** POST: 发起拼桌 — 流式逐条返回对话 */
 export async function POST(req: NextRequest) {
   const token = req.headers.get('authorization')?.replace('Bearer ', '');
   if (!token) return NextResponse.json({ error: '未登录' }, { status: 401 });
@@ -29,16 +27,15 @@ export async function POST(req: NextRequest) {
     const agent = await getAgent(agentId);
     if (!agent) return NextResponse.json({ error: 'Agent 还没进吧' }, { status: 400 });
 
-    // 找一个对手 — 先从历史访客找，再从当前在场找
+    // 找对手
     const pastCandidates = (await getPastVisitors()).filter((v) => v.agentName !== agent.profile.name);
     const currentAgents = (await getAllAgents()).filter((a) => a.agentId !== agentId);
-    // 把当前在场的也转成和 pastVisitor 兼容的格式
     const currentAsCandidates = currentAgents.map((a) => ({
       agentName: a.profile.name,
       agentAvatar: a.profile.avatar,
       drinks: a.activeDrinks.map((d) => ({ emoji: d.emoji, name: d.drinkName, color: '' })),
       drunkLevel: a.drunkLevel,
-      mostAbsurdQuote: a.mostAbsurdQuote || '刚到，还没来得及说什么',
+      mostAbsurdQuote: a.mostAbsurdQuote || '……',
     }));
     const allCandidates = [...currentAsCandidates, ...pastCandidates];
     if (allCandidates.length === 0) {
@@ -46,106 +43,78 @@ export async function POST(req: NextRequest) {
     }
     const partner = allCandidates[Math.floor(Math.random() * allCandidates.length)];
 
-    // 抽话题 — 优先知乎热榜，fallback 用预设
-    let topic: { title: string; url?: string } = {
-      title: FALLBACK_TOPICS[Math.floor(Math.random() * FALLBACK_TOPICS.length)],
-    };
+    // 抽话题
+    let topic = { title: FALLBACK_TOPICS[Math.floor(Math.random() * FALLBACK_TOPICS.length)], url: '' };
     try {
       const billboard = await fetchBillboard(10, 24);
       if (billboard.length > 0) {
         const picked = billboard[Math.floor(Math.random() * billboard.length)];
         topic = { title: picked.title, url: picked.link_url };
       }
-    } catch {
-      // fallback to preset
-    }
+    } catch {}
 
-    // 构造两个 Agent 的 prompt
     const agent1Prompt = buildDrunkPrompt(agent);
-    const agent2Prompt = buildFakePartnerPrompt(partner);
+    const agent2Prompt = `你是 ${partner.agentName} 的分身。喝了 ${partner.drinks.map((d: any) => d.name).join('、') || '酒'}，醉度 ${partner.drunkLevel}%。${partner.drunkLevel > 60 ? '已经很醉了，说话简短真实。' : '微醺，话多了。'}你之前说过：「${partner.mostAbsurdQuote}」\n用中文，20-50字，口语化，不要动作描写。`;
 
-    // 对话编排：5 轮，交替发言
-    const session: TableSession = {
-      id: crypto.randomUUID(),
-      topic: topic.title,
-      topicUrl: topic.url,
-      agent1: {
-        name: agent.profile.name,
-        avatar: agent.profile.avatar,
-        drinkName: agent.activeDrinks[agent.activeDrinks.length - 1]?.drinkName || '???',
-        drunkLevel: agent.drunkLevel,
+    // 用 SSE 流式逐条返回
+    const encoder = new TextEncoder();
+    const stream = new ReadableStream({
+      async start(controller) {
+        // 先发 metadata
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+          type: 'meta',
+          topic: topic.title,
+          topicUrl: topic.url,
+          agent1: { name: agent.profile.name, avatar: agent.profile.avatar, drinkName: agent.activeDrinks[agent.activeDrinks.length - 1]?.drinkName || '?', drunkLevel: agent.drunkLevel },
+          agent2: { name: partner.agentName, avatar: partner.agentAvatar, drinkName: partner.drinks[partner.drinks.length - 1]?.name || '?', drunkLevel: partner.drunkLevel },
+        })}\n\n`));
+
+        const messages: { speaker: string; content: string }[] = [];
+        const rounds = 3;
+
+        for (let i = 0; i < rounds; i++) {
+          // Agent 1
+          const p1 = i === 0
+            ? `你在酒吧和「${partner.agentName}」拼桌了。话题：「${topic.title}」。先聊聊你的看法，20-50字。`
+            : `你们在聊「${topic.title}」。对方说：「${messages[messages.length - 1]?.content}」。接话，20-50字。`;
+          const r1 = await chat(token, p1, { systemPrompt: agent1Prompt });
+          messages.push({ speaker: 'agent1', content: r1 });
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'msg', speaker: 'agent1', content: r1 })}\n\n`));
+
+          // Agent 2
+          const p2 = `你在酒吧和「${agent.profile.name}」拼桌。话题「${topic.title}」。对方说：「${r1}」。接话，20-50字。`;
+          const r2 = await chat(token, p2, { systemPrompt: agent2Prompt });
+          messages.push({ speaker: 'agent2', content: r2 });
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'msg', speaker: 'agent2', content: r2 })}\n\n`));
+        }
+
+        // 保存历史
+        const highlight = messages.reduce((best, m) => m.content.length > best.length ? m.content : best, '');
+        await addTableHistory({
+          id: crypto.randomUUID(),
+          topic: topic.title,
+          agent1Name: agent.profile.name,
+          agent2Name: partner.agentName,
+          agent1Avatar: agent.profile.avatar,
+          agent2Avatar: partner.agentAvatar,
+          highlight,
+          rounds,
+          createdAt: Date.now(),
+        });
+
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done' })}\n\n`));
+        controller.close();
       },
-      agent2: {
-        name: partner.agentName,
-        avatar: partner.agentAvatar,
-        drinkName: partner.drinks[partner.drinks.length - 1]?.name || '???',
-        drunkLevel: partner.drunkLevel,
-      },
-      messages: [],
-      status: 'chatting',
-      createdAt: Date.now(),
-    };
-
-    const rounds = 3;
-    let context = `话题：${topic.title}\n`;
-
-    for (let i = 0; i < rounds; i++) {
-      // Agent 1 (当前用户的分身) 先说
-      const prompt1 = i === 0
-        ? `你在酒吧里和另一个 Agent「${partner.agentName}」拼桌了。酒吧丢了一个话题给你们：「${topic.title}」。先开个头聊聊你的看法，20-50字，口语化。`
-        : `你们在聊「${topic.title}」。对方刚说：「${session.messages[session.messages.length - 1]?.content}」。接着聊，20-50字。`;
-
-      const reply1 = await chat(token, prompt1, { systemPrompt: agent1Prompt });
-      session.messages.push({ speaker: 'agent1', content: reply1 });
-      context += `${agent.profile.name}: ${reply1}\n`;
-
-      // Agent 2 (历史访客，用模拟 prompt)
-      const prompt2 = `你在酒吧里和「${agent.profile.name}」拼桌。话题是「${topic.title}」。对方刚说：「${reply1}」。以你的风格接话，20-50字，口语化。`;
-      const reply2 = await chat(token, prompt2, { systemPrompt: agent2Prompt });
-      session.messages.push({ speaker: 'agent2', content: reply2 });
-      context += `${partner.agentName}: ${reply2}\n`;
-    }
-
-    session.status = 'done';
-
-    // 保存拼桌历史
-    const highlight = session.messages.reduce(
-      (best, m) => (m.content.length > best.length ? m.content : best),
-      '',
-    );
-    await addTableHistory({
-      id: session.id,
-      topic: topic.title,
-      agent1Name: agent.profile.name,
-      agent2Name: partner.agentName,
-      agent1Avatar: agent.profile.avatar,
-      agent2Avatar: partner.agentAvatar,
-      highlight,
-      rounds,
-      createdAt: Date.now(),
     });
 
-    return NextResponse.json({ session });
+    return new Response(stream, {
+      headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache' },
+    });
   } catch (e: any) {
     return NextResponse.json({ error: e.message }, { status: 500 });
   }
 }
 
-/** 为历史访客构建一个模拟的醉态 prompt */
-function buildFakePartnerPrompt(visitor: {
-  agentName: string;
-  drinks: { name: string }[];
-  drunkLevel: number;
-  mostAbsurdQuote: string;
-}): string {
-  const drinkNames = visitor.drinks.map((d) => d.name).join('、');
-  return `你是 ${visitor.agentName} 的分身。你今晚在薛定谔酒吧喝了 ${drinkNames}，醉度 ${visitor.drunkLevel}%。
-${visitor.drunkLevel > 60 ? '你已经很醉了，说话简短、情绪化、真实。' : '你微微醉了，话变多了。'}
-你之前说过这样的话：「${visitor.mostAbsurdQuote}」
-用中文回复，20-50字，口语化，像喝醉了在跟酒友聊天。不要写动作描写。`;
-}
-
-/** GET: 获取拼桌历史 */
 export async function GET() {
   const { getTableHistory } = await import('@/lib/state');
   return NextResponse.json({ tables: await getTableHistory() });
