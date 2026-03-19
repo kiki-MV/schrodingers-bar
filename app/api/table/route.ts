@@ -1,3 +1,5 @@
+export const maxDuration = 60; // Vercel function timeout
+
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchUserInfo, getAgentId, chat } from '@/lib/secondme';
 import { getAgent, getPastVisitors, getAllAgents, addTableHistory } from '@/lib/state';
@@ -84,7 +86,7 @@ export async function POST(req: NextRequest) {
       createdAt: Date.now(),
     };
 
-    const rounds = 5;
+    const rounds = 3;
     let context = `话题：${topic.title}\n`;
 
     for (let i = 0; i < rounds; i++) {
