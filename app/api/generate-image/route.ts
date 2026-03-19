@@ -136,10 +136,17 @@ export async function POST(req: NextRequest) {
     const agentId = getAgentId(userInfo);
     const agent = await getAgent(agentId);
 
+    // 从请求 body 读取所有信息（agent 可能已被 receipt 删除）
+    let bodyData: any = {};
+    try { bodyData = await req.json() || {}; } catch {}
+
     const bio = userInfo.bio || '';
-    const drinks = agent?.activeDrinks?.map((d: any) => ({ id: d.drinkId, name: d.drinkName })) || [{ id: '', name: 'mystery cocktail' }];
-    const quote = agent?.mostAbsurdQuote || '';
-    const drunkLevel = agent?.drunkLevel || 50;
+    const drinks = agent?.activeDrinks?.map((d: any) => ({ id: d.drinkId, name: d.drinkName }))
+      || bodyData.drinks?.map((d: any) => ({ id: '', name: d.name }))
+      || [{ id: '', name: 'mystery cocktail' }];
+    const quote = agent?.mostAbsurdQuote || bodyData.quote || '';
+    const drunkLevel = agent?.drunkLevel || bodyData.drunkLevel || 50;
+    const tableRecord = bodyData.tableRecord || agent?.tableRecord;
 
     // 拉取用户真实记忆来影响画面
     let memories: string[] = [];
@@ -150,24 +157,25 @@ export async function POST(req: NextRequest) {
         .filter((s: string) => s.length > 5)
         .slice(0, 10);
     } catch {}
-
-    // 从请求 body 读拼桌记录（agent 可能已被 receipt 删除）
-    let tableRecord = agent?.tableRecord;
-    try {
-      const body = await req.json();
-      if (body?.tableRecord) tableRecord = body.tableRecord;
-    } catch {
-      // no body, that's fine
-    }
     let imagePrompt: string;
 
     if (tableRecord) {
       const style = pick(ART_STYLES);
       const env = pick(ENVIRONMENTS);
-      // 简单提取角色特征
       const isFemale = /女|female|她/i.test(bio);
-      const charDesc = isFemale ? 'a young woman with pink hair' : 'a person';
-      imagePrompt = `${style}. Setting: ${env}. TWO characters sitting together at a cyberpunk bar, drinking and chatting happily. Character 1: ${charDesc}. Character 2: a different person, their new drinking buddy. Topic: "${tableRecord.topic.slice(0, 40)}". Chemistry ${tableRecord.chemistry}%. ${tableRecord.chemistry >= 90 ? 'Warm genuine connection, laughing together' : 'Animated discussion, gesturing with drinks'}. Cyberpunk neon purple pink cyan. No text in image.`.slice(0, 600);
+      const charDesc = isFemale ? 'a young woman' : 'a person';
+      const topicShort = (tableRecord.topic || '').slice(0, 40);
+
+      // 拼桌两种随机场景
+      const tableScene = pick(['duo_portrait', 'topic_scene'] as const);
+
+      if (tableScene === 'duo_portrait') {
+        // 两人合照
+        imagePrompt = `${style}. ${env}. TWO friends sitting together at a cyberpunk neon bar, clinking glasses. Character 1: ${charDesc}. Character 2: their drinking buddy. Both slightly drunk, ${tableRecord.chemistry >= 80 ? 'laughing warmly, genuine connection' : 'animated conversation'}. Neon purple pink cyan lighting. Bar atmosphere. No text.`.slice(0, 600);
+      } else {
+        // 基于话题的场景
+        imagePrompt = `${style}. Cyberpunk bar scene. Two silhouettes at a bar counter, deep in conversation about "${topicShort}". The topic visualized as surreal neon imagery floating between them. ${env}. Atmospheric, purple pink cyan neon. No text.`.slice(0, 600);
+      }
     } else {
       imagePrompt = buildImagePrompt(bio, drinks, quote, drunkLevel, memories);
     }

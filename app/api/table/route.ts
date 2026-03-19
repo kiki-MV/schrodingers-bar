@@ -110,6 +110,13 @@ export async function POST(req: NextRequest) {
           partnerName: partner.agentName,
         })}\n\n`));
 
+        // 从拼桌对话里提取最佳金句更新到 agent
+        const agent1Quotes = messages.filter((m) => m.speaker === 'agent1').map((m) => m.content);
+        const bestQuote = agent1Quotes.reduce((best, q) => q.length > best.length ? q : best, '');
+        if (bestQuote.length > 5) {
+          agent.mostAbsurdQuote = bestQuote;
+        }
+
         // 保存拼桌记录到 agent state（供结账时判断）
         agent.tableRecord = {
           partnerName: partner.agentName,

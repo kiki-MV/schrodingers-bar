@@ -47,6 +47,7 @@ export async function POST(req: NextRequest) {
       }),
       totalDrunkLevel: agent.drunkLevel,
       mostAbsurdQuote: agent.mostAbsurdQuote || '（今晚出奇地安静）',
+      tableRecord: agent.tableRecord,
       hangoverWarning: generateHangoverWarning(
         agent.activeDrinks.map((d) => d.drinkName),
       ),

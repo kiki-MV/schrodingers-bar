@@ -76,7 +76,12 @@ export default function ReceiptPage() {
       const res = await fetch('/api/generate-image', {
         method: 'POST',
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ tableRecord }),
+        body: JSON.stringify({
+          tableRecord,
+          quote: receipt?.mostAbsurdQuote,
+          drunkLevel: receipt?.totalDrunkLevel,
+          drinks: receipt?.drinks,
+        }),
       });
       if (!res.ok) {
         console.error('Image gen failed:', await res.text());
