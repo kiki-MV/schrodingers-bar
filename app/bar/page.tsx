@@ -25,6 +25,7 @@ export default function BarPage() {
   const [phase, setPhase] = useState<'menu' | 'drinking' | 'drunk'>('menu');
   const [drinkAnimation, setDrinkAnimation] = useState(false);
   const [selectedVisitor, setSelectedVisitor] = useState<VisitorCard | null>(null);
+  const [coins, setCoins] = useState<number | null>(null);
 
   useEffect(() => {
     if (!authLoading && !isLoggedIn) router.push('/auth');
@@ -33,16 +34,20 @@ export default function BarPage() {
   useEffect(() => {
     fetch('/api/drinks').then((r) => r.json()).then(setDrinks);
     fetch('/api/bar/visitors').then((r) => r.json()).then(setVisitors);
-  }, []);
+    if (token) {
+      fetch('/api/coins', { headers: { Authorization: `Bearer ${token}` } })
+        .then((r) => r.json()).then((d) => setCoins(d.coins)).catch(() => {});
+    }
+  }, [token]);
 
   const handleDrink = async (mode: 'blind' | 'pick', drinkId?: string) => {
     if (drinkLoading) return;
     const result = await orderDrink(mode, drinkId);
     if (result) {
+      if (result.coins !== undefined) setCoins(result.coins);
       setPhase('drinking');
       setDrinkAnimation(true);
       setTimeout(() => { setDrinkAnimation(false); setPhase('drunk'); }, 3000);
-      // 图片生成移到结账时（需要判断是否拼过桌来决定单人/合照）
     }
   };
 
@@ -153,7 +158,8 @@ export default function BarPage() {
 
         {/* 顶部操作 */}
         <div className="absolute top-4 right-4 flex items-center gap-3">
-          {agentState && <span className="text-xs text-neon-amber font-mono">醉度 {agentState.drunkLevel}%</span>}
+          {coins !== null && <span className="text-xs text-neon-amber font-mono">🪙 {coins}</span>}
+          {agentState && <span className="text-xs text-neon-pink font-mono">醉度 {agentState.drunkLevel}%</span>}
           <button onClick={() => { logout(); router.push('/'); }}
             className="text-text-dim text-xs hover:text-text-secondary cursor-pointer">离开</button>
         </div>
