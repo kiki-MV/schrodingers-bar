@@ -328,13 +328,20 @@ export default function BarPage() {
               <button key={drink.id} onClick={() => handleDrink('pick', drink.id)} disabled={drinkLoading}
                 className="glass-card p-5 text-left hover:bg-card-hover cursor-pointer group disabled:opacity-50"
                 style={{ borderColor: drink.color + '40' }}>
-                <div className="flex items-start justify-between mb-3">
-                  <span className="text-3xl">{drink.emoji}</span>
-                  <span className="text-xs px-2 py-1 rounded-full border font-mono"
-                    style={{ color: drink.color, borderColor: drink.color + '60' }}>{drink.strength}</span>
+                <div className="flex items-center gap-4 mb-3">
+                  <span className="text-5xl drop-shadow-lg" style={{ filter: `drop-shadow(0 0 8px ${drink.color}60)` }}>{drink.emoji}</span>
+                  <div className="flex-1">
+                    <h3 className="font-bold text-lg group-hover:neon-glow">{drink.name}</h3>
+                    <p className="text-text-dim text-xs font-mono">{drink.nameEn}</p>
+                  </div>
+                  <div className="text-right">
+                    <span className="text-xs px-2 py-1 rounded-full border font-mono block mb-1"
+                      style={{ color: drink.color, borderColor: drink.color + '60' }}>{drink.strength}</span>
+                    <span className="text-neon-amber text-sm font-bold font-mono">🪙 {
+                      drink.strength === '烈酒' ? 50 : drink.strength === '威士忌' ? 40 : drink.strength === '鸡尾酒' ? 35 : 30
+                    }</span>
+                  </div>
                 </div>
-                <h3 className="font-bold mb-1 group-hover:neon-glow">{drink.name}</h3>
-                <p className="text-text-dim text-xs font-mono mb-2">{drink.nameEn}</p>
                 <p className="text-text-secondary text-sm leading-relaxed">{drink.effect}</p>
               </button>
             ))}
@@ -349,12 +356,13 @@ export default function BarPage() {
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 opacity-50">
                 {drinks.comingSoon.map((drink) => (
                   <div key={drink.id} className="glass-card p-5">
-                    <div className="flex items-start justify-between mb-3">
-                      <span className="text-3xl grayscale">{drink.emoji}</span>
-                      <span className="text-xs px-2 py-1 rounded-full border border-border-dim text-text-dim font-mono">{drink.strength}</span>
+                    <div className="flex items-center gap-4 mb-3">
+                      <span className="text-5xl grayscale opacity-50">{drink.emoji}</span>
+                      <div>
+                        <h3 className="font-bold text-text-dim">{drink.name}</h3>
+                        <p className="text-text-dim text-xs font-mono">{drink.nameEn}</p>
+                      </div>
                     </div>
-                    <h3 className="font-bold mb-1 text-text-dim">{drink.name}</h3>
-                    <p className="text-text-dim text-xs font-mono mb-2">{drink.nameEn}</p>
                     <p className="text-text-dim text-sm">{drink.effect}</p>
                   </div>
                 ))}
