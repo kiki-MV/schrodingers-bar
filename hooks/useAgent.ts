@@ -26,6 +26,7 @@ interface DrinkResult {
   entranceQuote: string;
   drink: DrinkInfo;
   agentState: AgentInfo;
+  coins?: number;
 }
 
 export function useAgent(token: string | null) {
