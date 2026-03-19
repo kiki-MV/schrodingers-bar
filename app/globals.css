@@ -1,26 +1,312 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg-dark: #0a0a0f;
+  --bg-card: #1a1a2e;
+  --bg-card-hover: #22223a;
+  --border-dim: #2a2a4a;
+  --neon-purple: #a855f7;
+  --neon-pink: #ec4899;
+  --neon-cyan: #06b6d4;
+  --neon-green: #22c55e;
+  --neon-amber: #f59e0b;
+  --text-primary: #e2e8f0;
+  --text-secondary: #94a3b8;
+  --text-dim: #64748b;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
+  --color-background: var(--bg-dark);
+  --color-foreground: var(--text-primary);
+  --color-neon-purple: var(--neon-purple);
+  --color-neon-pink: var(--neon-pink);
+  --color-neon-cyan: var(--neon-cyan);
+  --color-neon-green: var(--neon-green);
+  --color-neon-amber: var(--neon-amber);
+  --color-card: var(--bg-card);
+  --color-card-hover: var(--bg-card-hover);
+  --color-border-dim: var(--border-dim);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-dim: var(--text-dim);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+body {
+  background: var(--bg-dark);
+  color: var(--text-primary);
+  font-family: Arial, Helvetica, sans-serif;
+  min-height: 100vh;
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+/* 霓虹发光效果 */
+.neon-glow {
+  text-shadow:
+    0 0 7px var(--neon-purple),
+    0 0 10px var(--neon-purple),
+    0 0 21px var(--neon-purple),
+    0 0 42px var(--neon-pink);
+}
+
+.neon-glow-cyan {
+  text-shadow:
+    0 0 7px var(--neon-cyan),
+    0 0 10px var(--neon-cyan),
+    0 0 21px var(--neon-cyan);
+}
+
+/* 毛玻璃卡片 */
+.glass-card {
+  background: rgba(26, 26, 46, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid var(--border-dim);
+  border-radius: 12px;
+}
+
+/* 故障文字效果 */
+@keyframes glitch {
+  0% { clip-path: inset(40% 0 61% 0); transform: translate(-2px, 2px); }
+  20% { clip-path: inset(92% 0 1% 0); transform: translate(1px, -1px); }
+  40% { clip-path: inset(43% 0 1% 0); transform: translate(-1px, 3px); }
+  60% { clip-path: inset(25% 0 58% 0); transform: translate(3px, 1px); }
+  80% { clip-path: inset(54% 0 7% 0); transform: translate(-3px, -2px); }
+  100% { clip-path: inset(58% 0 43% 0); transform: translate(2px, -3px); }
+}
+
+.glitch {
+  position: relative;
+}
+.glitch::before,
+.glitch::after {
+  content: attr(data-text);
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+.glitch::before {
+  color: var(--neon-cyan);
+  animation: glitch 2s infinite linear alternate-reverse;
+  z-index: -1;
+}
+.glitch::after {
+  color: var(--neon-pink);
+  animation: glitch 3s infinite linear alternate-reverse;
+  z-index: -1;
+}
+
+/* 扫描线 */
+.scanline::after {
+  content: '';
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(0, 0, 0, 0.03) 2px,
+    rgba(0, 0, 0, 0.03) 4px
+  );
+  pointer-events: none;
+  z-index: 9999;
+}
+
+/* 醉态文字抖动 */
+@keyframes drunk-shake {
+  0%, 100% { transform: translate(0, 0) rotate(0deg); }
+  10% { transform: translate(-1px, 1px) rotate(-0.5deg); }
+  30% { transform: translate(1px, -1px) rotate(0.5deg); }
+  50% { transform: translate(-1px, 0px) rotate(-0.3deg); }
+  70% { transform: translate(1px, 1px) rotate(0.3deg); }
+  90% { transform: translate(0px, -1px) rotate(0deg); }
+}
+
+.drunk-shake-mild {
+  animation: drunk-shake 0.8s ease-in-out infinite;
+}
+.drunk-shake-heavy {
+  animation: drunk-shake 0.3s ease-in-out infinite;
+}
+
+/* 90%+ 天旋地转 — 卡片在视窗内大幅游走 */
+@keyframes drunk-wander-1 {
+  0%   { transform: translate(0, 0) rotate(0deg); }
+  15%  { transform: translate(40px, -25px) rotate(3deg); }
+  30%  { transform: translate(-35px, 30px) rotate(-4deg); }
+  45%  { transform: translate(50px, 10px) rotate(5deg); }
+  60%  { transform: translate(-45px, -20px) rotate(-3deg); }
+  75%  { transform: translate(20px, 40px) rotate(2deg); }
+  90%  { transform: translate(-30px, -15px) rotate(-5deg); }
+  100% { transform: translate(0, 0) rotate(0deg); }
+}
+@keyframes drunk-wander-2 {
+  0%   { transform: translate(0, 0) rotate(0deg); }
+  20%  { transform: translate(-45px, 20px) rotate(-4deg); }
+  40%  { transform: translate(30px, -35px) rotate(3deg); }
+  60%  { transform: translate(-20px, 45px) rotate(-5deg); }
+  80%  { transform: translate(50px, -15px) rotate(4deg); }
+  100% { transform: translate(0, 0) rotate(0deg); }
+}
+@keyframes drunk-wander-3 {
+  0%   { transform: translate(0, 0) rotate(0deg); }
+  25%  { transform: translate(35px, 30px) rotate(4deg); }
+  50%  { transform: translate(-50px, -10px) rotate(-3deg); }
+  75%  { transform: translate(25px, -40px) rotate(5deg); }
+  100% { transform: translate(0, 0) rotate(0deg); }
+}
+
+/* 游走应用在外层容器上，不和内层酒效动画冲突 */
+.drunk-wander {
+  animation: drunk-wander-1 5s ease-in-out infinite;
+}
+.drunk-wander:nth-child(even) {
+  animation-name: drunk-wander-2;
+  animation-duration: 6.5s;
+}
+.drunk-wander:nth-child(3n) {
+  animation-name: drunk-wander-3;
+  animation-duration: 4.5s;
+}
+.drunk-wander:nth-child(5n) {
+  animation-direction: reverse;
+  animation-duration: 7s;
+}
+
+/* 酒效专属视觉 */
+
+/* 梯度消失：文字逐渐变透明 */
+.fx-vanishing-gradient {
+  animation: fx-fade 8s ease-in forwards;
+}
+@keyframes fx-fade {
+  0% { opacity: 1; }
+  100% { opacity: 0.25; }
+}
+
+/* 熵增波本：文字位移越来越乱 */
+@keyframes fx-entropy {
+  0%, 100% { transform: translate(0, 0) skewX(0deg); }
+  20% { transform: translate(2px, -1px) skewX(0.5deg); }
+  40% { transform: translate(-3px, 2px) skewX(-1deg); }
+  60% { transform: translate(4px, -3px) skewX(1.5deg); }
+  80% { transform: translate(-5px, 4px) skewX(-2deg); }
+}
+.fx-entropy {
+  animation: fx-entropy 2s ease-in-out infinite;
+}
+
+/* 空指针伏特加：间歇性卡顿 */
+@keyframes fx-null-pointer {
+  0%, 70%, 100% { opacity: 1; transform: none; }
+  71% { opacity: 0; transform: translateX(-20px); }
+  85% { opacity: 0; transform: translateX(-20px); }
+  86% { opacity: 1; transform: none; }
+}
+.fx-null-pointer {
+  animation: fx-null-pointer 4s ease-in-out infinite;
+}
+
+/* 死循环：缓慢旋转 */
+@keyframes fx-loop {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+.fx-loop {
+  animation: fx-loop 20s linear infinite;
+}
+
+/* 过拟合：越来越粗 */
+.fx-overfitting {
+  animation: fx-bold 6s ease-in forwards;
+}
+@keyframes fx-bold {
+  0% { font-weight: 400; letter-spacing: 0; }
+  100% { font-weight: 900; letter-spacing: 2px; }
+}
+
+/* 霓虹边框 */
+.neon-border {
+  border: 1px solid var(--neon-purple);
+  box-shadow:
+    0 0 5px rgba(168, 85, 247, 0.3),
+    inset 0 0 5px rgba(168, 85, 247, 0.1);
+}
+
+/* 喝酒动画 */
+@keyframes pour {
+  0% { transform: translateY(-20px); opacity: 0; }
+  30% { transform: translateY(0); opacity: 1; }
+  70% { transform: translateY(0); opacity: 1; }
+  100% { transform: translateY(10px); opacity: 0; }
+}
+
+.pour-animation {
+  animation: pour 2s ease-in-out;
+}
+
+/* 脉冲效果 */
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 5px rgba(168, 85, 247, 0.3); }
+  50% { box-shadow: 0 0 20px rgba(168, 85, 247, 0.6), 0 0 30px rgba(168, 85, 247, 0.3); }
+}
+
+.pulse-glow {
+  animation: pulse-glow 2s ease-in-out infinite;
+}
+
+/* 渐入动画 */
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.fade-in-up {
+  animation: fade-in-up 0.6s ease-out;
+}
+
+/* 打字机效果辅助 */
+@keyframes blink-cursor {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0; }
+}
+
+.cursor-blink::after {
+  content: '▊';
+  animation: blink-cursor 1s infinite;
+  color: var(--neon-purple);
+}
+
+/* 醉度条 */
+/* 霓虹呼吸灯 */
+@keyframes neon-breathe {
+  0%, 100% { box-shadow: 0 0 5px var(--glow-color, #a855f7); }
+  50% { box-shadow: 0 0 20px var(--glow-color, #a855f7), 0 0 35px var(--glow-color, #a855f7); }
+}
+.neon-breathe {
+  animation: neon-breathe 2s ease-in-out infinite;
+}
+
+/* 隐藏滚动条 */
+.hide-scrollbar::-webkit-scrollbar { display: none; }
+.hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+
+/* 霓虹分割线 */
+.neon-divider {
+  height: 1px;
+  background: linear-gradient(90deg, transparent, var(--neon-purple), var(--neon-pink), var(--neon-cyan), transparent);
+}
+
+.drunk-meter-fill {
+  transition: width 0.8s ease-in-out;
+  background: linear-gradient(
+    90deg,
+    var(--neon-green) 0%,
+    var(--neon-amber) 50%,
+    var(--neon-pink) 80%,
+    #ef4444 100%
+  );
 }
