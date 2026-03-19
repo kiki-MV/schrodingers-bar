@@ -2,7 +2,7 @@ export const maxDuration = 60;
 
 import { NextRequest, NextResponse } from 'next/server';
 import { fetchUserInfo, getAgentId, chat } from '@/lib/secondme';
-import { getAgent, getPastVisitors, getAllAgents, addTableHistory } from '@/lib/state';
+import { getAgent, setAgent, getPastVisitors, getAllAgents, addTableHistory } from '@/lib/state';
 import { buildDrunkPrompt } from '@/lib/personality';
 import { fetchBillboard } from '@/lib/zhihu';
 import { TableSession } from '@/types';
@@ -87,6 +87,38 @@ export async function POST(req: NextRequest) {
           messages.push({ speaker: 'agent2', content: r2 });
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'msg', speaker: 'agent2', content: r2 })}\n\n`));
         }
+
+        // 生成契合度评分
+        const convoText = messages.map((m) => `${m.speaker === 'agent1' ? agent.profile.name : partner.agentName}: ${m.content}`).join('\n');
+        let chemistry = 50 + Math.floor(Math.random() * 30); // fallback
+        try {
+          const scoreReply = await chat(token, `分析这段酒吧对话的契合度，只回复一个0-100的数字：\n${convoText}`, {
+            systemPrompt: '你是一个社交契合度分析师。根据对话内容判断两人的默契程度。只回复一个数字(0-100)，不要其他内容。',
+          });
+          const parsed = parseInt(scoreReply.replace(/\D/g, ''));
+          if (parsed >= 0 && parsed <= 100) chemistry = parsed;
+        } catch {}
+
+        const partnerRoute = (partner as any).route || '';
+        const partnerHomepage = partnerRoute ? `https://second-me.cn/${partnerRoute}` : '';
+
+        // 发送契合度结果
+        controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+          type: 'chemistry',
+          score: chemistry,
+          partnerHomepage: chemistry >= 90 ? partnerHomepage : '',
+          partnerName: partner.agentName,
+        })}\n\n`));
+
+        // 保存拼桌记录到 agent state（供结账时判断）
+        agent.tableRecord = {
+          partnerName: partner.agentName,
+          partnerAvatar: partner.agentAvatar,
+          topic: topic.title,
+          chemistry,
+          partnerRoute,
+        };
+        await setAgent(agentId, agent);
 
         // 保存历史
         const highlight = messages.reduce((best, m) => m.content.length > best.length ? m.content : best, '');

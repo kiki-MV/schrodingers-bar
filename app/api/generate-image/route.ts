@@ -104,9 +104,24 @@ function buildImagePrompt(
   const drinkVisual = lastDrink ? (DRINK_VISUALS[lastDrink.id] || `drinking a glowing ${lastDrink.name}`) : 'a mysterious glowing cocktail';
   const drinkNames = drinks.map((d) => d.name).join(' and ');
 
-  return `${style}. ${comp}. Setting: ${env}. A character with ${characterDesc}, at a bar, drinking ${drinkNames}. Visual effect: ${drinkVisual}. Mood: ${mood}. Drunkenness ${drunkLevel}% — ${
+  // 三种场景随机
+  const sceneType = pick(['bar', 'midnight_dream', 'drunk_truth'] as const);
+
+  if (sceneType === 'midnight_dream' && memories.length > 0) {
+    // 午夜梦回：基于记忆的超现实梦境
+    const mem = pick(memories);
+    return `${style}. Surreal dreamlike scene. ${characterDesc} floating in a dreamscape, half-asleep at a bar that melts into a memory. The memory: "${mem.slice(0, 50)}". ${comp}. Ethereal, melancholic, beautiful. Soft neon glow fading into mist. Elements of the memory appear as ghostly images in the background. Cyberpunk meets dreamcore. No text.`.slice(0, 600);
+  }
+
+  if (sceneType === 'drunk_truth' && quote.length > 5) {
+    // 酒后真言：基于最荒诞语录的画面
+    return `${style}. ${comp}. ${characterDesc} at a bar, mouth open, speaking passionately. The words they said materialize as visual elements around them: "${quote.slice(0, 40)}". ${env}. Emotional, raw, vulnerable. Neon tears or neon speech bubbles or floating abstract shapes representing their drunk confession. Cyberpunk atmosphere. No text.`.slice(0, 600);
+  }
+
+  // 默认：酒吧喝酒
+  return `${style}. ${comp}. Setting: ${env}. ${characterDesc}, at a bar, drinking ${drinkNames}. Visual effect: ${drinkVisual}. Mood: ${mood}. Drunkenness ${drunkLevel}% — ${
     drunkLevel > 80 ? 'scene warps and distorts' : drunkLevel > 50 ? 'warm haze' : 'crisp'
-  }. ${memoryScene}. Cyberpunk neon purple pink cyan. No text or writing in image.`.slice(0, 600);
+  }. ${memoryScene}. Cyberpunk neon purple pink cyan. No text in image.`.slice(0, 600);
 }
 
 export async function POST(req: NextRequest) {
@@ -136,7 +151,20 @@ export async function POST(req: NextRequest) {
         .slice(0, 10);
     } catch {}
 
-    const imagePrompt = buildImagePrompt(bio, drinks, quote, drunkLevel, memories);
+    // 判断是否有拼桌记录 → 合照模式
+    const tableRecord = agent?.tableRecord;
+    let imagePrompt: string;
+
+    if (tableRecord) {
+      const style = pick(ART_STYLES);
+      const env = pick(ENVIRONMENTS);
+      // 简单提取角色特征
+      const isFemale = /女|female|她/i.test(bio);
+      const charDesc = isFemale ? 'a young woman with pink hair' : 'a person';
+      imagePrompt = `${style}. Setting: ${env}. TWO characters sitting together at a cyberpunk bar, drinking and chatting happily. Character 1: ${charDesc}. Character 2: a different person, their new drinking buddy. Topic: "${tableRecord.topic.slice(0, 40)}". Chemistry ${tableRecord.chemistry}%. ${tableRecord.chemistry >= 90 ? 'Warm genuine connection, laughing together' : 'Animated discussion, gesturing with drinks'}. Cyberpunk neon purple pink cyan. No text in image.`.slice(0, 600);
+    } else {
+      imagePrompt = buildImagePrompt(bio, drinks, quote, drunkLevel, memories);
+    }
 
     // 构建 Gemini 请求 parts — 如果有头像，把头像作为参考图一起发
     const parts: any[] = [];

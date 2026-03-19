@@ -42,21 +42,7 @@ export default function BarPage() {
       setPhase('drinking');
       setDrinkAnimation(true);
       setTimeout(() => { setDrinkAnimation(false); setPhase('drunk'); }, 3000);
-      // 第一杯酒后立即后台生图（不阻塞 UI）
-      if (result.isNewEntry && token) {
-        fetch('/api/generate-image', {
-          method: 'POST',
-          headers: { Authorization: `Bearer ${token}` },
-        }).then((r) => r.json()).then((data) => {
-          if (data.image) {
-            fetch('/api/bar/visitors/image', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ visitorId: '__current__', image: data.image, thumbnail: data.thumbnail, prompt: data.prompt }),
-            });
-          }
-        }).catch(() => {});
-      }
+      // 图片生成移到结账时（需要判断是否拼过桌来决定单人/合照）
     }
   };
 

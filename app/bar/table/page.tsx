@@ -16,6 +16,8 @@ export default function TablePage() {
   const [agent2, setAgent2] = useState<AgentInfo | null>(null);
   const [messages, setMessages] = useState<Msg[]>([]);
   const [done, setDone] = useState(false);
+  const [chemistry, setChemistry] = useState<number | null>(null);
+  const [partnerHomepage, setPartnerHomepage] = useState('');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
@@ -68,6 +70,9 @@ export default function TablePage() {
                 setAgent2(data.agent2);
               } else if (data.type === 'msg') {
                 setMessages((prev) => [...prev, { speaker: data.speaker, content: data.content }]);
+              } else if (data.type === 'chemistry') {
+                setChemistry(data.score);
+                if (data.partnerHomepage) setPartnerHomepage(data.partnerHomepage);
               } else if (data.type === 'done') {
                 setDone(true);
               }
@@ -170,11 +175,47 @@ export default function TablePage() {
 
       {/* 底部 */}
       {done && (
-        <div className="glass-card border-t border-border-dim px-4 py-4">
-          <div className="max-w-2xl mx-auto text-center space-y-3">
-            <p className="text-text-dim text-xs font-mono">拼桌结束！两位醉鬼聊完了。</p>
-            <div className="flex gap-3 justify-center">
+        <div className="glass-card border-t border-border-dim px-4 py-6">
+          <div className="max-w-2xl mx-auto text-center space-y-4">
+            {/* 契合度 */}
+            {chemistry !== null && (
+              <div className="fade-in-up">
+                <p className="text-text-dim text-xs font-mono mb-2">拼桌化学反应</p>
+                <div className="text-5xl font-bold neon-glow mb-1" style={{
+                  color: chemistry >= 90 ? '#22c55e' : chemistry >= 70 ? '#f59e0b' : '#ec4899'
+                }}>
+                  {chemistry}%
+                </div>
+                <p className="text-text-secondary text-sm">
+                  {chemistry >= 90 ? '🔥 灵魂契合！你们的分身聊嗨了' :
+                   chemistry >= 70 ? '✨ 挺有话聊的，酒友认证' :
+                   chemistry >= 50 ? '🍻 还行，至少没冷场' :
+                   '😅 话不投机，可能需要多喝几杯'}
+                </p>
+              </div>
+            )}
+
+            {/* ≥90% 解锁对方主页 */}
+            {chemistry !== null && chemistry >= 90 && partnerHomepage && (
+              <div className="glass-card neon-border p-4 fade-in-up">
+                <p className="text-neon-green text-sm font-bold mb-2">🎉 契合度爆表！解锁了对方的 SecondMe</p>
+                <p className="text-text-secondary text-xs mb-3">你们的分身聊得太投机了，也许你们的主人也应该认识一下？</p>
+                <a href={partnerHomepage} target="_blank" rel="noopener noreferrer"
+                  className="inline-block px-6 py-3 rounded-lg bg-neon-green/20 border border-neon-green text-neon-green font-mono text-sm hover:bg-neon-green/30 cursor-pointer">
+                  🤝 去认识 {agent2?.name} 的主人
+                </a>
+              </div>
+            )}
+
+            {chemistry !== null && chemistry >= 90 && !partnerHomepage && (
+              <div className="glass-card p-3 fade-in-up">
+                <p className="text-neon-green text-sm">🎉 契合度爆表！可惜对方还没设置 SecondMe 主页</p>
+              </div>
+            )}
+
+            <div className="flex gap-3 justify-center pt-2">
               <button onClick={() => window.location.reload()} className="px-6 py-3 rounded-lg border border-neon-pink text-neon-pink hover:bg-neon-pink/10 cursor-pointer font-mono text-sm">🍻 再拼一桌</button>
+              <button onClick={() => router.push('/bar/receipt')} className="px-6 py-3 rounded-lg border border-neon-purple text-neon-purple hover:bg-neon-purple/10 cursor-pointer font-mono text-sm">📜 结账走人</button>
               <button onClick={() => router.push('/bar')} className="px-6 py-3 rounded-lg border border-neon-cyan text-neon-cyan hover:bg-neon-cyan/10 cursor-pointer font-mono text-sm">← 回吧台</button>
             </div>
           </div>

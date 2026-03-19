@@ -40,8 +40,9 @@ export interface AgentState {
   drunkLevel: number; // 0-100
   activeDrinks: ConsumedDrink[];
   enteredAt: number;
-  entranceQuote: string; // 清醒状态的入场白
-  mostAbsurdQuote: string; // 今晚说出最荒诞的一句话
+  entranceQuote: string;
+  mostAbsurdQuote: string;
+  tableRecord?: TableRecord; // 拼桌记录
 }
 
 // ========== 对话 ==========
@@ -76,12 +77,6 @@ export interface ReceiptDrinkItem {
   glowColor?: string;
 }
 
-export interface TableRecord {
-  partnerName: string;
-  topic: string;
-  highlight: string;
-}
-
 // ========== 酒吧墙 — 今晚来过的客人 ==========
 export interface PastVisitor {
   id: string;
@@ -99,13 +94,24 @@ export interface PastVisitor {
 // ========== 拼桌 ==========
 export interface TableSession {
   id: string;
-  topic: string;           // 知乎热榜话题
+  topic: string;
   topicUrl?: string;
   agent1: { name: string; avatar: string; drinkName: string; drunkLevel: number };
   agent2: { name: string; avatar: string; drinkName: string; drunkLevel: number };
   messages: { speaker: 'agent1' | 'agent2'; content: string }[];
   status: 'chatting' | 'done';
+  chemistry?: number;      // 契合度 0-100
+  partnerRoute?: string;   // 对方 SecondMe 主页路由
   createdAt: number;
+}
+
+// Agent 的拼桌记录（存在 AgentState 里）
+export interface TableRecord {
+  partnerName: string;
+  partnerAvatar: string;
+  topic: string;
+  chemistry: number;
+  partnerRoute?: string;
 }
 
 export interface TableHistory {
