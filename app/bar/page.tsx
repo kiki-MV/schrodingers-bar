@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useAgent } from '@/hooks/useAgent';
@@ -29,8 +29,6 @@ export default function BarPage() {
   const [selectedVisitor, setSelectedVisitor] = useState<VisitorCard | null>(null);
   const [coins, setCoins] = useState<number | null>(null);
   const [jukeboxOpen, setJukeboxOpen] = useState(false);
-  const autoTriggered = useRef(false);
-
   useEffect(() => {
     if (!authLoading && !isLoggedIn) router.push('/auth');
   }, [authLoading, isLoggedIn, router]);
@@ -43,15 +41,6 @@ export default function BarPage() {
         .then((r) => r.json()).then((d) => setCoins(d.coins)).catch(() => {});
     }
   }, [token]);
-
-  // 新用户自动盲选一杯（无需手动点击）
-  useEffect(() => {
-    if (!token || authLoading || drinkLoading || agentState || autoTriggered.current) return;
-    autoTriggered.current = true;
-    // 延迟 500ms 让页面先渲染
-    const t = setTimeout(() => handleDrink('blind'), 500);
-    return () => clearTimeout(t);
-  }, [token, authLoading, drinkLoading, agentState]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleDrink = async (mode: 'blind' | 'pick', drinkId?: string) => {
     if (drinkLoading) return;
