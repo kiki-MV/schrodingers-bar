@@ -104,18 +104,40 @@ function buildImagePrompt(
   const drinkVisual = lastDrink ? (DRINK_VISUALS[lastDrink.id] || `drinking a glowing ${lastDrink.name}`) : 'a mysterious glowing cocktail';
   const drinkNames = drinks.map((d) => d.name).join(' and ');
 
-  // 三种场景随机
-  const sceneType = pick(['bar', 'midnight_dream', 'drunk_truth'] as const);
+  // 7 种场景随机 — 每种都有 fallback，不依赖 quote/memories
+  const sceneType = pick([
+    'bar', 'midnight_dream', 'drunk_truth',
+    'quantum_split', 'glass_view', 'neon_portrait', 'after_hours',
+  ] as const);
 
-  if (sceneType === 'midnight_dream' && memories.length > 0) {
-    // 午夜梦回：基于记忆的超现实梦境
-    const mem = pick(memories);
-    return `${style}. Surreal dreamlike scene. ${characterDesc} floating in a dreamscape, half-asleep at a bar that melts into a memory. The memory: "${mem.slice(0, 50)}". ${comp}. Ethereal, melancholic, beautiful. Soft neon glow fading into mist. Elements of the memory appear as ghostly images in the background. Cyberpunk meets dreamcore. No text.`.slice(0, 600);
+  if (sceneType === 'midnight_dream') {
+    const memFragment = memories.length > 0
+      ? `The memory: "${pick(memories).slice(0, 50)}". Elements of the memory appear as ghostly images.`
+      : `Fragments of forgotten conversations and half-remembered faces float in the mist.`;
+    return `${style}. Surreal dreamlike scene. ${characterDesc} floating in a dreamscape, half-asleep at a bar that melts into a dream. ${memFragment} ${comp}. Ethereal, melancholic, beautiful. Soft neon glow fading into mist. Cyberpunk meets dreamcore. No text.`.slice(0, 600);
   }
 
-  if (sceneType === 'drunk_truth' && quote.length > 5) {
-    // 酒后真言：基于最荒诞语录的画面
-    return `${style}. ${comp}. ${characterDesc} at a bar, mouth open, speaking passionately. The words they said materialize as visual elements around them: "${quote.slice(0, 40)}". ${env}. Emotional, raw, vulnerable. Neon tears or neon speech bubbles or floating abstract shapes representing their drunk confession. Cyberpunk atmosphere. No text.`.slice(0, 600);
+  if (sceneType === 'drunk_truth') {
+    const quoteFragment = quote.length > 5
+      ? `The words they said materialize as visual elements: "${quote.slice(0, 40)}".`
+      : `Unspoken thoughts materialize as glowing abstract shapes and neon calligraphy around them.`;
+    return `${style}. ${comp}. ${characterDesc} at a bar, emotional moment. ${quoteFragment} ${env}. Raw, vulnerable, honest. Neon tears or floating abstract shapes representing inner feelings. Cyberpunk atmosphere. No text.`.slice(0, 600);
+  }
+
+  if (sceneType === 'quantum_split') {
+    return `${style}. ${comp}. ${characterDesc} caught in quantum superposition — two overlapping versions, one sober one drunk, splitting apart. ${env}. A cat watches from the bar counter, both alive and asleep. Reality fractures with neon cracks. Schrödinger's bar. Cyberpunk. No text.`.slice(0, 600);
+  }
+
+  if (sceneType === 'glass_view') {
+    return `${style}. View from INSIDE a glowing cocktail glass looking outward at ${characterDesc}. Distorted fish-eye perspective through liquid. Neon lights refract through the drink creating rainbow caustics. ${env}. ${mood}. Surreal, immersive. No text.`.slice(0, 600);
+  }
+
+  if (sceneType === 'neon_portrait') {
+    return `${style}. Cinematic close-up portrait. ${characterDesc}, face half-lit by neon purple and pink light, the other half in shadow. A glowing ${drinkNames} in hand. Expression: ${mood}. Smoke or mist curling around them. ${env}. Dramatic, moody, intimate. No text.`.slice(0, 600);
+  }
+
+  if (sceneType === 'after_hours') {
+    return `${style}. ${comp}. ${env}. Late night, the bar is almost empty. ${characterDesc} is the last one here, sitting alone with ${drinkNames}. Empty glasses around them. A bartender robot polishes a glass in the background. Lonely but peaceful. Neon signs flickering. Cyberpunk noir. No text.`.slice(0, 600);
   }
 
   // 默认：酒吧喝酒

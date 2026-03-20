@@ -49,6 +49,15 @@ export default function BarPage() {
       if (result.coins !== undefined) setCoins(result.coins);
       setPhase('drinking');
       setDrinkAnimation(true);
+
+      // 点酒后立刻后台生图上墙（不阻塞 UI）
+      if (token) {
+        fetch('/api/bar/auto-portrait', {
+          method: 'POST',
+          headers: { Authorization: `Bearer ${token}` },
+        }).catch(() => {});
+      }
+
       // 动画结束后直接跳到聊天页
       setTimeout(() => { setDrinkAnimation(false); router.push('/bar/talk'); }, 3000);
     }
