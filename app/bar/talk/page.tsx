@@ -24,9 +24,11 @@ export default function TalkPage() {
   const [drunkLevel, setDrunkLevel] = useState(0);
   const [energy, setEnergy] = useState(MAX_AUTO_MONOLOGUES); // 剩余独白能量
   const [passedOut, setPassedOut] = useState(false); // Agent 是否睡着了
+  const [toastMessage, setToastMessage] = useState('');
   const chatEndRef = useRef<HTMLDivElement>(null);
   const monologueTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const monologueCount = useRef(0);
+  const portraitTriggered = useRef(false);
 
   useEffect(() => {
     if (!authLoading && !isLoggedIn) router.push('/auth');
@@ -106,6 +108,12 @@ export default function TalkPage() {
 
       if (drunk > 0) setDrunkLevel(drunk);
       monologueCount.current += 1;
+
+      // 3 轮 agent 回复后自动生图上墙
+      if (monologueCount.current >= 3 && !portraitTriggered.current) {
+        portraitTriggered.current = true;
+        triggerAutoPortrait();
+      }
     } catch {
       // silent
     } finally {
@@ -158,6 +166,24 @@ export default function TalkPage() {
       if (monologueTimer.current) clearTimeout(monologueTimer.current);
     };
   }, [token]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 自动生图上墙
+  const triggerAutoPortrait = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await fetch('/api/bar/auto-portrait', {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (data.ok && !data.alreadyDone) {
+        setToastMessage('你的酒吧照已上墙！');
+        setTimeout(() => setToastMessage(''), 5000);
+      }
+    } catch {
+      // 静默失败，不影响聊天
+    }
+  }, [token]);
 
   // 人类搭话
   const handleSend = async () => {
@@ -216,6 +242,17 @@ export default function TalkPage() {
 
   return (
     <div className="min-h-screen flex flex-col">
+      {/* Toast 通知 */}
+      {toastMessage && (
+        <div className="fixed top-4 inset-x-0 z-50 flex justify-center pointer-events-none">
+          <div className="px-6 py-3 rounded-xl glass-card border border-neon-pink/50
+            text-neon-pink text-sm font-mono fade-in-up pointer-events-auto"
+            style={{ boxShadow: '0 0 30px rgba(236,72,153,0.3)' }}>
+            📸 {toastMessage}
+          </div>
+        </div>
+      )}
+
       {/* 顶栏 */}
       <div className="glass-card border-b border-border-dim px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-3">
