@@ -5,7 +5,7 @@ const redis = new Redis({
   token: process.env.KV_REST_API_TOKEN!,
 });
 
-const DAILY_COINS = 100;
+const DAILY_COINS = 200;
 
 // 酒价表
 export const DRINK_PRICES: Record<string, number> = {
@@ -20,7 +20,7 @@ function todayKey(userId: string): string {
   return `bar:coins:${userId}:${today}`;
 }
 
-/** 获取今日余额（首次访问自动发 100 金币） */
+/** 获取今日余额（首次访问自动发 200 金币） */
 export async function getCoins(userId: string): Promise<number> {
   const key = todayKey(userId);
   const val = await redis.get<number>(key);
