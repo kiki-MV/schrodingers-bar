@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/hooks/useAuth';
 import { useAgent } from '@/hooks/useAgent';
+import { useJukebox } from '@/hooks/useJukebox';
 
 interface DrinkData {
   id: string; name: string; nameEn: string; emoji: string;
@@ -20,12 +21,14 @@ export default function BarPage() {
   const router = useRouter();
   const { token, isLoggedIn, loading: authLoading, logout } = useAuth();
   const { agentState, currentDrink, entranceQuote, loading: drinkLoading, orderDrink } = useAgent(token);
+  const jukebox = useJukebox(token);
   const [drinks, setDrinks] = useState<{ available: DrinkData[]; comingSoon: DrinkData[] }>({ available: [], comingSoon: [] });
   const [visitors, setVisitors] = useState<{ current: VisitorCard[]; past: VisitorCard[] }>({ current: [], past: [] });
   const [phase, setPhase] = useState<'menu' | 'drinking' | 'drunk'>('menu');
   const [drinkAnimation, setDrinkAnimation] = useState(false);
   const [selectedVisitor, setSelectedVisitor] = useState<VisitorCard | null>(null);
   const [coins, setCoins] = useState<number | null>(null);
+  const [jukeboxOpen, setJukeboxOpen] = useState(false);
 
   useEffect(() => {
     if (!authLoading && !isLoggedIn) router.push('/auth');
@@ -51,12 +54,150 @@ export default function BarPage() {
     }
   };
 
+  const handlePlayTrack = async (trackId: string) => {
+    if (jukebox.isPlaying && jukebox.currentTrack?.id === trackId) {
+      jukebox.stop();
+      return;
+    }
+    const result = await jukebox.play(trackId);
+    if (result.coins !== undefined) setCoins(result.coins);
+  };
+
   if (authLoading) return null;
+
+  // ── 点唱机弹窗面板 ──
+  const jukeboxPanel = jukeboxOpen && (
+    <div className="fixed inset-0 z-50 bg-black/80 flex items-end justify-center md:items-center"
+      onClick={() => setJukeboxOpen(false)}>
+      <div className="w-full max-w-md max-h-[85vh] overflow-y-auto rounded-t-2xl md:rounded-2xl"
+        onClick={(e) => e.stopPropagation()}
+        style={{
+          background: 'linear-gradient(180deg, #1a1520 0%, #0f0a14 100%)',
+          border: '1px solid rgba(245,158,11,0.3)',
+          boxShadow: '0 0 60px rgba(245,158,11,0.1)',
+        }}>
+
+        {/* 头部 */}
+        <div className="p-6 text-center" style={{ borderBottom: '1px solid rgba(245,158,11,0.15)' }}>
+          {/* Jukebox arch */}
+          <div className="relative w-20 h-24 mx-auto mb-3">
+            <div className="absolute inset-x-0 top-0 h-12 rounded-t-full"
+              style={{ background: 'linear-gradient(180deg, rgba(245,158,11,0.25) 0%, rgba(234,88,12,0.15) 100%)', border: '2px solid rgba(245,158,11,0.5)', borderBottom: 'none' }} />
+            <div className="absolute inset-x-1 top-10 bottom-0 rounded-b-lg"
+              style={{ background: 'linear-gradient(180deg, rgba(234,88,12,0.15) 0%, rgba(245,158,11,0.08) 100%)', border: '2px solid rgba(245,158,11,0.4)', borderTop: 'none' }} />
+            <div className="absolute top-5 left-1/2 -translate-x-1/2 text-3xl">🎵</div>
+            {/* Speaker grilles */}
+            <div className="absolute bottom-2 left-3 right-3 space-y-1">
+              <div className="h-px" style={{ background: 'rgba(245,158,11,0.3)' }} />
+              <div className="h-px" style={{ background: 'rgba(245,158,11,0.2)' }} />
+              <div className="h-px" style={{ background: 'rgba(245,158,11,0.15)' }} />
+            </div>
+          </div>
+          <h2 className="text-xl font-bold" style={{ color: '#f59e0b', textShadow: '0 0 20px rgba(245,158,11,0.5)' }}>
+            量子点唱机
+          </h2>
+          <p className="text-xs font-mono mt-1" style={{ color: 'rgba(245,158,11,0.5)' }}>QUANTUM JUKEBOX</p>
+        </div>
+
+        {/* 当前播放 */}
+        {jukebox.isPlaying && jukebox.currentTrack && (
+          <div className="px-5 py-4"
+            style={{ background: `linear-gradient(135deg, ${jukebox.currentTrack.color}10, transparent)`, borderBottom: '1px solid rgba(245,158,11,0.1)' }}>
+            <div className="flex items-center gap-4">
+              <span className="text-4xl jukebox-spin"
+                style={{ filter: `drop-shadow(0 0 10px ${jukebox.currentTrack.color})` }}>
+                {jukebox.currentTrack.emoji}
+              </span>
+              <div className="flex-1">
+                <p className="text-xs font-mono mb-1" style={{ color: '#f59e0b' }}>♪ 正在播放</p>
+                <p className="font-bold" style={{ color: jukebox.currentTrack.color }}>
+                  {jukebox.currentTrack.name}
+                </p>
+                <p className="text-text-secondary text-xs mt-0.5">{jukebox.currentTrack.artist}</p>
+              </div>
+              <button onClick={() => jukebox.stop()}
+                className="w-10 h-10 rounded-full border flex items-center justify-center cursor-pointer hover:bg-card-hover"
+                style={{ borderColor: jukebox.currentTrack.color + '60', color: jukebox.currentTrack.color }}>
+                ⏹
+              </button>
+            </div>
+
+            {/* 音量 */}
+            <div className="flex items-center gap-3 mt-3">
+              <span className="text-text-dim text-xs">🔈</span>
+              <input type="range" min="0" max="100" value={Math.round(jukebox.volume * 100)}
+                onChange={(e) => jukebox.setVolume(Number(e.target.value) / 100)}
+                className="flex-1 h-1 cursor-pointer"
+                style={{ accentColor: '#f59e0b' }}
+              />
+              <span className="text-text-dim text-xs">🔊</span>
+            </div>
+          </div>
+        )}
+
+        {/* 曲目列表 */}
+        <div className="p-4 space-y-2">
+          {jukebox.tracks.map((track) => {
+            const isActive = jukebox.currentTrack?.id === track.id;
+            return (
+              <button key={track.id}
+                onClick={() => handlePlayTrack(track.id)}
+                disabled={jukebox.paying}
+                className="w-full p-4 rounded-xl text-left cursor-pointer transition-all duration-200 disabled:opacity-50"
+                style={{
+                  background: isActive ? `${track.color}15` : 'rgba(26, 26, 46, 0.6)',
+                  border: isActive ? `1px solid ${track.color}60` : '1px solid rgba(245,158,11,0.1)',
+                }}
+              >
+                <div className="flex items-center gap-3">
+                  <span className={`text-3xl ${isActive ? 'jukebox-spin' : ''}`}
+                    style={isActive ? { filter: `drop-shadow(0 0 8px ${track.color})` } : undefined}>
+                    {track.emoji}
+                  </span>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-bold text-sm" style={isActive ? { color: track.color } : { color: '#e2e8f0' }}>
+                        {track.name}
+                      </h3>
+                      {isActive && <span className="text-xs" style={{ color: track.color }}>♪</span>}
+                    </div>
+                    <p className="text-text-dim text-xs font-mono">{track.nameEn}</p>
+                    <p className="text-text-secondary text-xs mt-1 truncate">{track.artist}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    {isActive ? (
+                      <span className="text-xs font-mono px-2 py-1 rounded-full"
+                        style={{ color: track.color, background: track.color + '20' }}>
+                        播放中
+                      </span>
+                    ) : (
+                      <span className="text-xs font-bold font-mono" style={{ color: '#f59e0b' }}>
+                        🪙 {track.price}
+                      </span>
+                    )}
+                  </div>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+
+        <div className="p-4 pt-0 text-center">
+          <p className="text-text-dim text-xs font-mono mb-3">投币一次，本次会话内免费重播</p>
+          <button onClick={() => setJukeboxOpen(false)}
+            className="text-text-dim text-sm hover:text-text-secondary cursor-pointer py-2">
+            关闭
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 
   // ── 喝酒动画 ──
   if (phase === 'drinking' && currentDrink) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center">
+        {jukeboxPanel}
         <div className="text-center fade-in-up">
           {entranceQuote && (
             <div className="mb-8 glass-card p-4 max-w-md mx-auto">
@@ -85,6 +226,7 @@ export default function BarPage() {
   if (phase === 'drunk' && agentState) {
     return (
       <div className="min-h-screen flex flex-col items-center justify-center px-4">
+        {jukeboxPanel}
         <div className="text-center fade-in-up max-w-lg w-full">
           <div className="mb-8">
             <div className="flex justify-between text-sm font-mono mb-2">
@@ -131,6 +273,8 @@ export default function BarPage() {
 
   return (
     <div className="min-h-screen">
+      {jukeboxPanel}
+
       {/* ═══ Banner ═══ */}
       <div className="relative overflow-hidden px-4 pt-12 pb-8">
         {/* 粒子背景 */}
@@ -195,14 +339,11 @@ export default function BarPage() {
                     } ${v.isHere ? '' : 'opacity-80'}`}
                     style={{ borderColor: lastDrinkColor + '40' }}
                   >
-                    {/* 在场标记 */}
                     {v.isHere && (
                       <div className="absolute top-2 right-2 z-10 w-3 h-3 rounded-full bg-neon-green neon-breathe"
                         style={{ '--glow-color': '#22c55e' } as any} />
                     )}
-
                     {v.thumbnail ? (
-                      /* ── 有 AI 图的卡片 ── */
                       <>
                         <div className="aspect-square relative overflow-hidden">
                           <img src={v.thumbnail} alt="" className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
@@ -225,7 +366,6 @@ export default function BarPage() {
                         </div>
                       </>
                     ) : (
-                      /* ── 在场 / 没图的卡片 — 头像 + 状态 ── */
                       <div className="p-4 flex flex-col items-center justify-center aspect-square"
                         style={{ background: `linear-gradient(135deg, #0a0a14 0%, ${lastDrinkColor}15 100%)` }}>
                         {v.agentAvatar ? (
@@ -301,24 +441,97 @@ export default function BarPage() {
 
       <div className="neon-divider" />
 
-      {/* ═══ 酒单 ═══ */}
+      {/* ═══ 盲选 + 点唱机 ═══ */}
       <div className="px-4 py-8">
         <div className="max-w-4xl mx-auto">
-          {/* 盲选 */}
-          <div className="text-center mb-10">
+          <div className="flex flex-col md:flex-row gap-5 items-stretch justify-center mb-12">
+            {/* 盲选一杯 */}
             <button onClick={() => handleDrink('blind')} disabled={drinkLoading}
-              className="px-10 py-5 rounded-xl font-mono text-xl
-                bg-gradient-to-r from-neon-purple/20 to-neon-pink/20
-                border border-neon-purple text-neon-purple
-                hover:from-neon-purple/30 hover:to-neon-pink/30
-                hover:shadow-[0_0_30px_rgba(168,85,247,0.3)]
-                cursor-pointer disabled:opacity-50 pulse-glow">
-              {drinkLoading ? '⏳ 调酒中...' : '🎲 盲选一杯 · 薛定谔式'}
+              className="flex-1 max-w-sm py-6 rounded-2xl font-mono text-xl
+                bg-gradient-to-br from-neon-purple/20 to-neon-pink/15
+                border-2 border-neon-purple text-neon-purple
+                hover:from-neon-purple/30 hover:to-neon-pink/25
+                hover:shadow-[0_0_40px_rgba(168,85,247,0.3)]
+                cursor-pointer disabled:opacity-50 pulse-glow
+                flex flex-col items-center justify-center gap-3">
+              <span className="text-5xl">{drinkLoading ? '⏳' : '🎲'}</span>
+              <span className="text-lg font-bold">{drinkLoading ? '调酒中...' : '盲选一杯'}</span>
+              <span className="text-text-dim text-xs font-mono">薛定谔式 · 打开才知道</span>
             </button>
-            <p className="text-text-dim text-sm mt-3 font-mono">在你打开之前，你不知道会喝到什么</p>
+
+            {/* ═══ 量子点唱机 ═══ */}
+            <button onClick={() => setJukeboxOpen(true)}
+              className="flex-1 max-w-sm py-6 rounded-2xl font-mono cursor-pointer
+                flex flex-col items-center justify-center gap-2
+                transition-all duration-300 relative overflow-hidden group"
+              style={{
+                background: jukebox.isPlaying
+                  ? `linear-gradient(135deg, rgba(245,158,11,0.2) 0%, ${jukebox.currentTrack?.color || '#f59e0b'}20 100%)`
+                  : 'linear-gradient(135deg, rgba(245,158,11,0.15) 0%, rgba(234,88,12,0.1) 100%)',
+                border: '2px solid rgba(245,158,11,0.6)',
+                boxShadow: jukebox.isPlaying
+                  ? `0 0 40px rgba(245,158,11,0.25), inset 0 0 30px rgba(245,158,11,0.05)`
+                  : '0 0 25px rgba(245,158,11,0.15), inset 0 0 20px rgba(245,158,11,0.03)',
+              }}
+            >
+              {/* 拱顶装饰 */}
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 w-32 h-1.5 rounded-b-full"
+                style={{ background: 'linear-gradient(90deg, transparent, rgba(245,158,11,0.7), transparent)' }} />
+
+              {/* Jukebox 造型图标 */}
+              <div className="relative w-16 h-20 mb-1">
+                {/* 拱形顶部 */}
+                <div className="absolute inset-x-0 top-0 h-10 rounded-t-full"
+                  style={{
+                    background: 'linear-gradient(180deg, rgba(245,158,11,0.35) 0%, rgba(234,88,12,0.2) 100%)',
+                    border: '2px solid rgba(245,158,11,0.6)',
+                    borderBottom: 'none',
+                  }} />
+                {/* 机身 */}
+                <div className="absolute inset-x-0.5 top-8 bottom-0 rounded-b-lg"
+                  style={{
+                    background: 'linear-gradient(180deg, rgba(234,88,12,0.2) 0%, rgba(245,158,11,0.1) 100%)',
+                    border: '2px solid rgba(245,158,11,0.5)',
+                    borderTop: 'none',
+                  }} />
+                {/* 音符 */}
+                <div className={`absolute top-3 left-1/2 -translate-x-1/2 text-2xl ${jukebox.isPlaying ? 'jukebox-spin' : ''}`}>
+                  🎵
+                </div>
+                {/* 扬声器纹路 */}
+                <div className="absolute bottom-1.5 left-2.5 right-2.5 space-y-0.5">
+                  <div className="h-px rounded" style={{ background: 'rgba(245,158,11,0.4)' }} />
+                  <div className="h-px rounded" style={{ background: 'rgba(245,158,11,0.25)' }} />
+                  <div className="h-px rounded" style={{ background: 'rgba(245,158,11,0.15)' }} />
+                </div>
+              </div>
+
+              <span className="text-lg font-bold" style={{ color: '#fbbf24', textShadow: '0 0 15px rgba(245,158,11,0.6)' }}>
+                量子点唱机
+              </span>
+              <span className="text-xs font-mono" style={{ color: 'rgba(245,158,11,0.5)' }}>
+                QUANTUM JUKEBOX
+              </span>
+
+              {/* 播放中指示 */}
+              {jukebox.isPlaying && jukebox.currentTrack && (
+                <div className="mt-1 flex items-center gap-2 px-3 py-1 rounded-full"
+                  style={{ background: `${jukebox.currentTrack.color}25`, border: `1px solid ${jukebox.currentTrack.color}40` }}>
+                  <span className="text-sm jukebox-spin">{jukebox.currentTrack.emoji}</span>
+                  <span className="text-xs font-bold" style={{ color: jukebox.currentTrack.color }}>
+                    {jukebox.currentTrack.name}
+                  </span>
+                  <span className="text-xs" style={{ color: jukebox.currentTrack.color }}>♪</span>
+                </div>
+              )}
+
+              {/* hover 光效 */}
+              <div className="absolute inset-0 rounded-2xl opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+                style={{ background: 'linear-gradient(135deg, rgba(245,158,11,0.05), rgba(234,88,12,0.08))' }} />
+            </button>
           </div>
 
-          {/* 已上线 */}
+          {/* ═══ 酒单 ═══ */}
           <h2 className="text-lg font-bold mb-4 flex items-center gap-2">
             <span className="text-neon-amber">✦</span>
             今晚酒单 · 精选 {drinks.available.length} 款
